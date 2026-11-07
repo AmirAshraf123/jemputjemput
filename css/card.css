@@ -1,0 +1,36 @@
+/* Invitation card. Every colour and font comes from inline custom properties
+   set per template in js/card.js, so cards look the same in light or dark mode. */
+.card{width:100%;max-width:440px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.18);border-radius:var(--r,0px)}
+.card-inner{position:relative;isolation:isolate;overflow:hidden;text-align:var(--al,center);padding:40px 28px;display:grid;gap:10px;justify-items:var(--ji,center);background:var(--cbg);color:var(--ink);font-family:var(--bf);font-size:var(--bs,16px);border-radius:calc(var(--r,0px)*.6)}
+.card-inner.lined{outline:1px solid var(--lc);outline-offset:-10px}
+.card-inner.has-bg{padding-block:56px}
+.card-inner p{margin:0}
+.c-head{font-size:.8em;letter-spacing:.22em;text-transform:uppercase}
+.c-names{margin:6px 0;line-height:1.1;font-weight:400;display:grid;gap:2px;text-wrap:balance;font-family:var(--nf);font-style:var(--nfs,normal);font-size:min(var(--ns,44px),12vw);color:var(--acc)}
+.c-names .amp{font-size:.55em}
+.c-msg{max-width:30ch;font-size:1.08em;line-height:1.45}
+.c-orn{margin:6px 0;color:var(--acc);letter-spacing:.4em;font-family:Georgia,serif;font-size:1.1em}
+.c-orn.rule{width:64px;height:1px;background:var(--acc);letter-spacing:0}
+.c-date{font-size:1.2em;letter-spacing:.04em}
+.card-inner .c-venue{margin-top:6px;font-size:1.2em}
+.card-inner .c-for{margin-top:14px;font-size:.9em;font-style:italic;opacity:.85}
+
+/* photo in a frame, or as the full background */
+.c-photo{position:relative;overflow:hidden;margin-bottom:8px;border:2px solid var(--acc);background:var(--cbg);container-type:size}
+.c-photo.arch{border-radius:999px 999px 6px 6px}
+.c-photo.circle{border-radius:50%}
+.c-photo.rect{border-radius:4px}
+.c-bg,.c-veil{position:absolute;inset:0;z-index:-1;overflow:hidden}
+.c-bg{container-type:size}
+.c-veil{background:var(--veil)}
+/* 100% zoom = photo just covers the frame; dx/dy shift it by % of the frame's size */
+.c-photo img,.c-bg img{position:absolute;left:50%;top:50%;max-width:none;height:auto;
+  width:calc(max(100cqw, 100cqh * var(--ar,1.5)) * var(--z,1));
+  transform:translate(calc(-50% + var(--dx,0) * 1cqw), calc(-50% + var(--dy,0) * 1cqh));
+  user-select:none;-webkit-user-drag:none;pointer-events:none}
+
+/* template swatches */
+.thumb{display:block;height:74px;border-radius:6px;overflow:hidden}
+.thumb-in{display:grid;place-items:center;height:100%;font-size:22px;line-height:1;white-space:nowrap;overflow:hidden}
+
+@media (max-width:420px){.card-inner{padding:32px 16px}}

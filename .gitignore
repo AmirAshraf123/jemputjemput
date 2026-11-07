@@ -1,0 +1,14 @@
+# System and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependencies and local tools (none are needed to run the site)
+node_modules/
+
+# Secrets: never commit these. The Supabase anon key in js/config.js is
+# public by design; the service_role key and Google client secret are not.
+.env
+.env.*
+*.pem

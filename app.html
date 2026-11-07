@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your invitations · Jemput</title>
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="theme-color" content="#1f5c4a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Amiri:wght@400;700&family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital@0;1&family=Figtree:wght@400;500;600;700&family=Great+Vibes&family=Italiana&family=Josefin+Sans:wght@300;400;600&family=Lora:ital@0;1&family=Marcellus&family=Parisienne&family=Playfair+Display:ital,wght@0,500;1,500&family=Poiret+One&display=swap">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/card.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="app.html"><img src="img/logo.svg" width="34" height="34" alt=""><b>Jemput</b><span>wedding invitations</span></a>
+  <div class="hdr-right"><span class="who" id="who"></span><button class="btn ghost sm" id="signOut">Sign out</button></div>
+</div></header>
+
+<main class="wrap">
+  <div class="dash-head">
+    <h1>Your invitations</h1>
+    <button class="btn" id="newInv">New invitation</button>
+  </div>
+  <div class="invs" id="invs"><p class="empty">Loading your invitations…</p></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

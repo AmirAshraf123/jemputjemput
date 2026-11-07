@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You're invited</title>
+<meta name="description" content="Your wedding invitation. Tap to see the details and reply.">
+<meta property="og:title" content="You're invited 💌">
+<meta property="og:description" content="Tap to open your wedding invitation and reply.">
+<meta property="og:type" content="website">
+<meta name="robots" content="noindex">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="theme-color" content="#1f5c4a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Amiri:wght@400;700&family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital@0;1&family=Figtree:wght@400;500;600;700&family=Great+Vibes&family=Italiana&family=Josefin+Sans:wght@300;400;600&family=Lora:ital@0;1&family=Marcellus&family=Parisienne&family=Playfair+Display:ital,wght@0,500;1,500&family=Poiret+One&display=swap">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/card.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="gv">
+    <div class="banner" id="previewNote" hidden>This is a preview of what your guest sees. Replies can't be sent from here.</div>
+    <div id="card"><p class="empty">Opening your invitation…</p></div>
+    <div class="details" id="details" hidden></div>
+    <div class="rsvp" id="rsvp" hidden></div>
+    <p class="foot-note">Made with <a href="index.html">Jemput</a> · <a href="privacy.html">Privacy</a></p>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script type="module" src="js/invite.js"></script>
+</body>
+</html>

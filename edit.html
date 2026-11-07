@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Edit invitation · Jemput</title>
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="theme-color" content="#1f5c4a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Amiri:wght@400;700&family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital@0;1&family=Figtree:wght@400;500;600;700&family=Great+Vibes&family=Italiana&family=Josefin+Sans:wght@300;400;600&family=Lora:ital@0;1&family=Marcellus&family=Parisienne&family=Playfair+Display:ital,wght@0,500;1,500&family=Poiret+One&display=swap">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/card.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="app.html"><img src="img/logo.svg" width="34" height="34" alt=""><b>Jemput</b><span>← all invitations</span></a>
+  <nav class="tabs" id="tabs" role="tablist">
+    <button role="tab" data-tab="design" aria-selected="true">Design</button>
+    <button role="tab" data-tab="guests" aria-selected="false">Guests</button>
+  </nav>
+  <div class="hdr-right"><span class="save" id="saveState"></span><button class="btn ghost sm" id="signOut">Sign out</button></div>
+</div></header>
+
+<main class="wrap">
+  <div id="notFound" class="empty" hidden>This invitation doesn't exist or belongs to another account. <a href="app.html">Back to your invitations</a></div>
+
+  <!-- DESIGN -->
+  <section id="v-design" hidden>
+    <div class="design">
+      <div class="form" id="designForm">
+        <fieldset>
+          <legend>Template <small id="tplState"></small></legend>
+          <div class="tpls" id="tpls"></div>
+          <div id="mineWrap" hidden>
+            <h3 class="sub-h">Your templates</h3>
+            <div class="tpls" id="mine" style="margin-top:8px"></div>
+          </div>
+        </fieldset>
+
+        <fieldset id="photoBox">
+          <legend>Photo or background</legend>
+          <div class="drop" id="drop">
+            <span id="phPrev"><span class="ph-empty" aria-hidden="true">＋</span></span>
+            <div class="txt">
+              <label class="btn ghost sm" for="photoFile" id="photoBtn">Choose a photo</label>
+              <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+              <span class="hint" id="photoNote">Or drag a photo here. JPG, PNG or WebP.</span>
+            </div>
+          </div>
+          <div id="photoOpts" hidden style="display:grid;gap:12px">
+            <div class="row">
+              <label class="f">Placement<select id="pMode" data-p="mode"><option value="top">Photo at the top</option><option value="background">Full background</option></select></label>
+              <label class="f" id="pShapeWrap">Shape<select id="pShape" data-p="shape"><option value="arch">Arch</option><option value="circle">Circle / oval</option><option value="rect">Rectangle</option></select></label>
+            </div>
+            <div class="row" id="pSizeRow">
+              <label class="f">Frame width <output id="oSize"></output><input type="range" id="pSize" data-p="size" min="30" max="100" step="1"></label>
+              <label class="f">Frame height <output id="oH"></output><input type="range" id="pH" data-p="h" min="40" max="200" step="1"></label>
+            </div>
+            <p class="hint">Drag the photo in the preview to move it, and use Zoom to fill the frame.</p>
+            <div class="row">
+              <label class="f">Zoom <output id="oZoom"></output><input type="range" id="pZoom" data-p="zoom" min="20" max="300" step="1"></label>
+              <label class="f">Left / right <output id="oPosX"></output><input type="range" id="pPosX" data-p="dx" min="-100" max="100" step="1"></label>
+              <label class="f">Up / down <output id="oPosY"></output><input type="range" id="pPosY" data-p="dy" min="-100" max="100" step="1"></label>
+            </div>
+            <label class="f" id="pFadeWrap">Card colour over photo <output id="oFade"></output><input type="range" id="pFade" data-p="fade" min="0" max="90" step="1"></label>
+            <div class="acts">
+              <button type="button" class="btn sm" id="matchFrame">Fit frame to photo</button>
+              <button type="button" class="btn sm ghost" id="fitPhoto">Show whole photo</button>
+              <button type="button" class="btn sm ghost" id="recenter">Fill the frame</button>
+              <button type="button" class="btn sm ghost" id="removePhoto">Remove photo</button>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset id="styleBox">
+          <legend>Make it yours <button type="button" class="btn sm ghost" id="resetStyle">Reset to template</button></legend>
+          <h3 class="sub-h">Fonts</h3>
+          <div class="row">
+            <label class="f">Names font<select id="sNameFont" data-s="nameFont"></select></label>
+            <label class="f">Text font<select id="sBodyFont" data-s="bodyFont"></select></label>
+          </div>
+          <div class="row">
+            <label class="f">Names size <output id="oNameSize"></output><input type="range" id="sNameSize" data-s="nameSize" min="28" max="64" step="1"></label>
+            <label class="f">Text size <output id="oBodySize"></output><input type="range" id="sBodySize" data-s="bodySize" min="13" max="20" step="1"></label>
+            <label class="f">Alignment<select id="sAlign" data-s="align"><option value="center">Centred</option><option value="left">Left</option></select></label>
+          </div>
+          <h3 class="sub-h">Colours</h3>
+          <div class="row colors">
+            <label class="f">Card<input type="color" id="sBg" data-s="bg"></label>
+            <label class="f">Text<input type="color" id="sInk" data-s="ink"></label>
+            <label class="f">Names<input type="color" id="sAccent" data-s="accent"></label>
+            <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
+            <label class="f">Border 2<input type="color" id="sFrameB" data-s="frameB"></label>
+          </div>
+          <h3 class="sub-h">Border and details</h3>
+          <div class="row">
+            <label class="f">Border pattern<select id="sFrame" data-s="frame">
+              <option value="none">None</option><option value="solid">Solid band</option><option value="double">Double line</option>
+              <option value="diamonds">Diamonds</option><option value="checks">Checks</option><option value="dots">Dots</option>
+              <option value="stripes">Diagonal stripes</option><option value="deco">Deco lines</option></select></label>
+            <label class="f">Divider<select id="sOrn" data-s="ornament">
+              <option value="rule">Thin line</option><option value="dots">• • •</option><option value="diamond">◆</option>
+              <option value="flourish">❦</option><option value="none">None</option></select></label>
+            <label class="f">Corners <output id="oRadius"></output><input type="range" id="sRadius" data-s="radius" min="0" max="28" step="1"></label>
+          </div>
+          <label class="chk"><input type="checkbox" id="sLine" data-s="line"> Thin inner frame line (uses Border 1 colour)</label>
+          <h3 class="sub-h">Save this look</h3>
+          <div class="saveas">
+            <input id="tplName" placeholder="Name your template, e.g. Kampung Gold" maxlength="40">
+            <button type="button" class="btn" id="saveTpl">Save as my template</button>
+          </div>
+          <p class="hint">Saved templates appear under "Your templates" in all your invitations.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>The couple</legend>
+          <div class="row">
+            <label class="f">First name<input id="name1" data-k="name1" maxlength="60"></label>
+            <label class="f">Second name<input id="name2" data-k="name2" maxlength="60"></label>
+          </div>
+          <label class="f">Heading above the names<input id="headline" data-k="headline" maxlength="80"></label>
+          <label class="f">Message<textarea id="message" data-k="message" maxlength="400"></textarea></label>
+        </fieldset>
+        <fieldset>
+          <legend>When</legend>
+          <div class="row">
+            <label class="f">Date<input type="date" id="date" data-k="date"></label>
+            <label class="f">Starts<input type="time" id="start" data-k="start"></label>
+            <label class="f">Ends<input type="time" id="end" data-k="end"></label>
+          </div>
+          <label class="f">Reply by<input type="date" id="rsvpBy" data-k="rsvpBy"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Where</legend>
+          <label class="f">Venue<input id="venue" data-k="venue" maxlength="120"></label>
+          <label class="f">Address<input id="address" data-k="address" maxlength="200"></label>
+          <label class="f">Dress code<input id="dress" data-k="dress" maxlength="80"></label>
+        </fieldset>
+      </div>
+      <div class="preview">
+        <h2 class="sec">Preview</h2>
+        <div id="designCard"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GUESTS -->
+  <section id="v-guests" hidden>
+    <div class="stats" id="stats"></div>
+    <div class="panel">
+      <h2 class="sec">Add a guest or household</h2>
+      <form class="addform" id="addForm">
+        <label class="f">Name on invitation<input id="gName" required maxlength="120" placeholder="Auntie Rosnah & family"></label>
+        <label class="f">WhatsApp number<input id="gPhone" inputmode="tel" maxlength="40" placeholder="9123 4567"></label>
+        <label class="f">Seats<input id="gSeats" type="number" min="1" max="50" value="2"></label>
+        <label class="f">Side<select id="gSide"><option>Groom</option><option>Bride</option><option>Both</option></select></label>
+        <button class="btn" type="submit">Add guest</button>
+      </form>
+    </div>
+    <div class="toolbar" id="filters">
+      <button class="chip" data-f="all" aria-pressed="true">All</button>
+      <button class="chip" data-f="pending" aria-pressed="false">Waiting</button>
+      <button class="chip" data-f="yes" aria-pressed="false">Coming</button>
+      <button class="chip" data-f="no" aria-pressed="false">Can't make it</button>
+      <span class="spacer"></span>
+      <span class="live" id="live"><i></i><span>Connecting…</span></span>
+      <button class="btn sm ghost" id="csv">Download CSV</button>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Guest</th><th>Side</th><th>Seats</th><th>Reply</th><th>Notes</th><th>Send</th></tr></thead>
+      <tbody id="gBody"></tbody>
+    </table></div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script type="module" src="js/edit.js"></script>
+</body>
+</html>
