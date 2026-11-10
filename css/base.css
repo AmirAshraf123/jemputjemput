@@ -20,19 +20,21 @@
   --wait-soft: #f3e6c7;
   --shadow: 0 1px 2px rgba(60, 45, 20, .08), 0 4px 14px rgba(60, 45, 20, .06);
   --ui: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --display: "Italiana", "Cormorant Garamond", Georgia, serif;
+  --display: "Playfair Display", "Cormorant Garamond", Georgia, serif;
   --radius: 12px;
   color-scheme: light;
 }
 
+/* Dark mode: follows the device unless the visitor picks a theme (js/theme.js sets data-theme).
+   Text is a soft off-white rather than pure white, which is easier on the eyes for people with astigmatism. */
 @media (prefers-color-scheme:dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #1a1712;
     --surface: #24201a;
     --sunk: #2e2921;
     --line: #3e382e;
     --ctl-line: #8f8471;
-    --fg: #f3ede2;
+    --fg: #ebe4d8;
     --muted: #bdb29f;
     --accent: #8fd0b4;
     --accent-ink: #10201a;
@@ -43,7 +45,91 @@
     --no-soft: #3d2420;
     --wait: #e9c47d;
     --wait-soft: #3a301b;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    --shadow: 0 0 0 1px rgba(0, 0, 0, .2);
+    color-scheme: dark
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1a1712;
+  --surface: #24201a;
+  --sunk: #2e2921;
+  --line: #3e382e;
+  --ctl-line: #8f8471;
+  --fg: #ebe4d8;
+  --muted: #bdb29f;
+  --accent: #8fd0b4;
+  --accent-ink: #10201a;
+  --accent-soft: #213a30;
+  --yes: #8bd6a9;
+  --yes-soft: #1f3328;
+  --no: #f2a093;
+  --no-soft: #3d2420;
+  --wait: #e9c47d;
+  --wait-soft: #3a301b;
+  --shadow: 0 0 0 1px rgba(0, 0, 0, .2);
+  color-scheme: dark
+}
+
+/* High contrast: used when the device asks for more contrast (e.g. "Increase contrast" on iPhone or Mac). */
+@media (prefers-contrast:more) {
+  :root {
+    --bg: #fffdf8;
+    --surface: #ffffff;
+    --sunk: #f2ebdd;
+    --line: #8a7c66;
+    --ctl-line: #4a3f2f;
+    --fg: #14100a;
+    --muted: #3b3227;
+    --accent: #174a3b;
+    --accent-ink: #ffffff;
+    --accent-soft: #dfeae2;
+    --yes: #14532f;
+    --no: #7d1f1f;
+    --wait: #5c400a
+  }
+}
+
+@media (prefers-contrast:more) and (prefers-color-scheme:dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0d0a;
+    --surface: #1a1712;
+    --sunk: #24201a;
+    --line: #6b6152;
+    --ctl-line: #d6ccb8;
+    --fg: #fbf8f2;
+    --muted: #e3dacb;
+    --accent: #a8e6cb;
+    --accent-ink: #071510;
+    --accent-soft: #1c3a2e;
+    --yes: #a9ebc3;
+    --yes-soft: #14291d;
+    --no: #ffbdb2;
+    --no-soft: #3a1b17;
+    --wait: #ffd98f;
+    --wait-soft: #33280f;
+    color-scheme: dark
+  }
+}
+
+@media (prefers-contrast:more) {
+  :root[data-theme="dark"] {
+    --bg: #0f0d0a;
+    --surface: #1a1712;
+    --sunk: #24201a;
+    --line: #6b6152;
+    --ctl-line: #d6ccb8;
+    --fg: #fbf8f2;
+    --muted: #e3dacb;
+    --accent: #a8e6cb;
+    --accent-ink: #071510;
+    --accent-soft: #1c3a2e;
+    --yes: #a9ebc3;
+    --yes-soft: #14291d;
+    --no: #ffbdb2;
+    --no-soft: #3a1b17;
+    --wait: #ffd98f;
+    --wait-soft: #33280f;
     color-scheme: dark
   }
 }
@@ -228,7 +314,10 @@ main {
 }
 
 .btn:disabled {
-  opacity: .5;
+  opacity: 1;
+  background: var(--sunk);
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1.5px var(--line);
   cursor: not-allowed
 }
 
@@ -1207,4 +1296,37 @@ td .tag {
 
 .chip {
   min-height: 38px
+}
+
+/* theme picker and screen-reader-only text */
+.vh {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap
+}
+
+.theme-pick select {
+  width: auto;
+  min-height: 38px;
+  padding: 6px 10px;
+  font-size: 14px;
+  background: var(--surface)
+}
+
+.theme-pick.in-footer {
+  display: block;
+  margin-top: 12px
+}
+
+@media (prefers-contrast:more) {
+  .card {
+    box-shadow: 0 0 0 2px var(--ctl-line)
+  }
+
+  a {
+    text-decoration-thickness: 2px
+  }
 }
