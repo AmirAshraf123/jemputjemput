@@ -3,7 +3,7 @@
 //   Group link:    invite.html#g/<group code>   (anyone in a group chat)
 // Add "/preview" to either to see it without being able to reply.
 import { sb, $, toast } from "./sb.js";
-import { cardHTML, cleanDetails, esc, fmtDate, timeRange, watchPhotos } from "./card.js";
+import { cardHTML, cleanDetails, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord } from "./card.js";
 
 const params = new URLSearchParams(location.search);
 const parts = location.hash.slice(1).split("/");
@@ -54,21 +54,21 @@ async function loadPersonal(t) {
 
 function setTitle() {
   const d = cleanDetails(inv.details);
-  document.title = `You're invited · ${[d.name1, d.name2].filter(Boolean).join(" & ")}`;
+  document.title = `You're invited · ${eventTitle(d)}`;
 }
 
 function notFound(err, group) {
   $("details").hidden = true; $("rsvp").hidden = true;
   const why = err ? "Something went wrong loading it. Please try again in a moment."
-    : group ? "This group link has been turned off or replaced. Please ask the couple for the current link."
-      : "The link may be incomplete. Please check you copied the whole link, or ask the couple to send it again.";
+    : group ? "This group link has been turned off or replaced. Please ask whoever sent it for the current link."
+      : "The link may be incomplete. Please check you copied the whole link, or ask whoever sent it to send it again.";
   $("card").innerHTML = `<div class="empty"><h2 style="font-family:var(--display);font-weight:400;font-size:32px;margin:0 0 8px">We couldn't find this invitation</h2><p>${why}</p></div>`;
 }
 
 function calLink(d) {
   if (!d.date) return "";
   const day = d.date.replace(/-/g, ""), t = (x) => (x || "00:00").replace(":", "") + "00";
-  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(`Wedding of ${d.name1} & ${d.name2}`)
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(eventTitle(d))
     + `&dates=${day}T${t(d.start)}/${day}T${t(d.end || d.start)}&ctz=Asia/Singapore&location=` + encodeURIComponent([d.venue, d.address].filter(Boolean).join(", "));
 }
 
@@ -112,7 +112,7 @@ function renderRsvp() {
     ${groupForm ? `
       <label class="f">Your name<input id="rName" maxlength="120" autocomplete="name" value="${esc(draft.name)}" placeholder="e.g. Daniel Tan"></label>
       <label class="f">Your WhatsApp number<input id="rPhone" type="tel" inputmode="tel" maxlength="40" autocomplete="tel" value="${esc(draft.phone)}" placeholder="9123 4567"></label>
-      <p class="hint">Your number is only shared with the couple, so they know who replied. Reply once per household.</p>` : ""}
+      <p class="hint">Your number is only shared with ${esc(hostWord(d))}, so they know who replied. Reply once per household.</p>` : ""}
     <div class="choice"><button type="button" class="y" data-s="yes" aria-pressed="${draft.status === "yes"}">Joyfully accept</button>
       <button type="button" class="n" data-s="no" aria-pressed="${draft.status === "no"}">Regretfully decline</button></div>
     <div ${draft.status === "yes" ? "" : "hidden"} style="display:grid;gap:12px">
@@ -120,7 +120,7 @@ function renderRsvp() {
         <select id="rComing">${Array.from({ length: maxSeats }, (_, i) => `<option ${i + 1 === +draft.coming ? "selected" : ""}>${i + 1}</option>`).join("")}</select></label>
       <label class="f">Dietary needs<input id="rDiet" maxlength="200" value="${esc(draft.dietary)}" placeholder="e.g. vegetarian, no seafood"></label>
     </div>
-    <label class="f">A note for the couple (optional)<textarea id="rNote" maxlength="500">${esc(draft.note)}</textarea></label>
+    <label class="f">A note for ${esc(hostWord(d))} (optional)<textarea id="rNote" maxlength="500">${esc(draft.note)}</textarea></label>
     <p class="form-error" id="rErr" role="alert" hidden></p>
     <button class="btn" id="rSend" ${draft.status && !preview ? "" : "disabled"}>${preview ? "Sending is off in preview" : "Send reply"}</button>`;
   el.querySelector(".choice").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; readDraft(); draft.status = b.dataset.s; renderRsvp(); };
@@ -153,7 +153,7 @@ async function sendGroup() {
   if (preview) return;
   readDraft();
   if (!draft.name.trim()) { showError("Please enter your name."); $("rName").focus(); return; }
-  if (draft.phone.replace(/\D/g, "").length < 8) { showError("Please enter your WhatsApp number, so the couple knows who replied."); $("rPhone").focus(); return; }
+  if (draft.phone.replace(/\D/g, "").length < 8) { showError("Please enter your WhatsApp number, so the hosts know who replied."); $("rPhone").focus(); return; }
   busy(true);
   const { data, error } = await sb.rpc("submit_group_rsvp", {
     p_token: groupToken, p_name: draft.name.trim(), p_phone: draft.phone.trim(), p_status: draft.status,
@@ -162,7 +162,7 @@ async function sendGroup() {
   if (error) {
     busy(false);
     const known = /Please enter|Please choose|reached its limit|not found/i.test(error.message || "");
-    showError(known ? error.message.replace("Invitation not found", "This group link has been turned off. Please ask the couple for the current link.")
+    showError(known ? error.message.replace("Invitation not found", "This group link has been turned off. Please ask whoever sent it for the current link.")
       : "Couldn't send your reply. Please check your connection and try again.");
     return;
   }

@@ -60,7 +60,10 @@
             <div id="photoOpts" hidden style="display:grid;gap:12px">
               <div class="row">
                 <label class="f">Placement<select id="pMode" data-p="mode">
-                    <option value="top">Photo at the top</option>
+                    <option value="top">Above the text</option>
+                    <option value="bottom">Below the text</option>
+                    <option value="left">Left of the text</option>
+                    <option value="right">Right of the text</option>
                     <option value="background">Full background</option>
                   </select></label>
                 <label class="f" id="pShapeWrap">Shape<select id="pShape" data-p="shape">
@@ -132,6 +135,7 @@
                   <option value="dots">Dots</option>
                   <option value="stripes">Diagonal stripes</option>
                   <option value="deco">Deco lines</option>
+                  <option value="confetti">Confetti</option>
                 </select></label>
               <label class="f">Divider<select id="sOrn" data-s="ornament">
                   <option value="rule">Thin line</option>
@@ -154,12 +158,13 @@
           </fieldset>
 
           <fieldset>
-            <legend>The couple</legend>
+            <legend id="namesLegend">The couple</legend>
+            <label class="f">Occasion<select id="occasion"></select></label>
             <div class="row">
-              <label class="f">First name<input id="name1" data-k="name1" maxlength="60"></label>
-              <label class="f">Second name<input id="name2" data-k="name2" maxlength="60"></label>
+              <label class="f"><span id="l1">First name</span><input id="name1" data-k="name1" maxlength="60"></label>
+              <label class="f"><span id="l2">Second name</span><input id="name2" data-k="name2" maxlength="60"></label>
             </div>
-            <label class="f">Heading above the names<input id="headline" data-k="headline" maxlength="80"></label>
+            <label class="f">Heading at the top<input id="headline" data-k="headline" maxlength="80"></label>
             <label class="f">Message<textarea id="message" data-k="message" maxlength="400"></textarea></label>
           </fieldset>
           <fieldset>

@@ -1,5 +1,5 @@
 import { sb, requireUser, signOut, $, toast, isConfigured, showSetupNotice } from "./sb.js";
-import { thumbHTML, cleanDetails, cleanStyle, fmtDate, esc, PRESETS, DEFAULT_DETAILS } from "./card.js";
+import { thumbHTML, cleanDetails, cleanStyle, fmtDate, esc, PRESETS, presetById, OCCASIONS, eventTitle, initialsFor, defaultDetailsFor } from "./card.js";
 
 if (!isConfigured) showSetupNotice();
 const user = await requireUser();
@@ -30,8 +30,8 @@ function render() {
     const g = inv.guests || [];
     const coming = g.filter((x) => x.status === "yes").reduce((a, x) => a + (x.coming || 0), 0);
     const waiting = g.filter((x) => x.status === "pending").length;
-    const names = [d.name1, d.name2].filter(Boolean).join(" & ") || "Untitled invitation";
-    const ini = `${(d.name1 || "A")[0]}&${(d.name2 || "B")[0]}`;
+    const names = (d.name1 || d.name2) ? eventTitle(d) : `Untitled ${OCCASIONS[d.occasion].label.toLowerCase()}`;
+    const ini = initialsFor(d);
     return `<article class="inv">
       <a class="open" href="edit.html#${inv.id}">
         ${thumbHTML(s, "", ini)}
@@ -59,12 +59,25 @@ $("invs").addEventListener("click", async (e) => {
   invs = invs.filter((x) => x.id !== id); render(); toast("Invitation deleted");
 });
 
-$("newInv").addEventListener("click", async () => {
-  $("newInv").disabled = true;
+// New invitation: pick the occasion first, so the wording and template start out right.
+$("occGrid").innerHTML = Object.entries(OCCASIONS).map(([k, o]) => {
+  const t = presetById(o.template);
+  return `<button type="button" class="tpl occ" data-o="${k}">${thumbHTML(t.style, o.label, initialsFor({ ...defaultDetailsFor(k), name1: o.two ? "" : o.label }))}</button>`;
+}).join("");
+$("newInv").addEventListener("click", () => {
+  const open = $("newPicker").hidden;
+  $("newPicker").hidden = !open;
+  $("newInv").setAttribute("aria-expanded", String(open));
+  $("newInv").textContent = open ? "Cancel" : "New invitation";
+  if (open) $("occGrid").querySelector("button")?.focus();
+});
+$("occGrid").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-o]"); if (!b) return;
+  const occ = OCCASIONS[b.dataset.o];
+  for (const x of $("occGrid").querySelectorAll("button")) x.disabled = true;
   const { data, error } = await sb.from("invitations")
-    .insert({ template: "songket", style: PRESETS[0].style, details: DEFAULT_DETAILS })
+    .insert({ template: occ.template, style: presetById(occ.template).style, details: defaultDetailsFor(b.dataset.o) })
     .select("id").single();
-  $("newInv").disabled = false;
-  if (error) { toast("Couldn't create it: " + error.message); return; }
+  if (error) { for (const x of $("occGrid").querySelectorAll("button")) x.disabled = false; toast("Couldn't create it: " + error.message); return; }
   location.href = `edit.html#${data.id}`;
 });

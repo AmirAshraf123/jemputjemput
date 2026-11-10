@@ -1,6 +1,6 @@
 # Jemput
 
-**Wedding invitations with a guest list built in.** Couples design an invitation, send each household a personal link on WhatsApp, and watch RSVPs arrive live. Guests never need an account.
+**Invitations with a guest list built in,** for weddings, birthdays, aqiqahs, open houses and more. Hosts design an invitation, send each household a personal link on WhatsApp, and watch RSVPs arrive live. Guests never need an account.
 
 *Jemput* is Malay for "to invite".
 
@@ -16,7 +16,7 @@ Canva can design a card, but it doesn't help with the hard part of a wedding in 
 
 | | |
 |---|---|
-| ![Invitation editor with nine templates and a live preview](docs/screenshots/editor.png) | **Design editor**<br>Nine templates (Songket, Peranakan, Art Deco and more), 16 fonts, colour pickers, border patterns, and photos you can drag, zoom and frame. Saved templates can be reused across invitations. Changes save automatically. |
+| ![Invitation editor with nine templates and a live preview](docs/screenshots/editor.png) | **Design editor**<br>Eight occasions, each with its own wording, and fifteen templates (Songket, Peranakan, Confetti, Festive and more). Sixteen fonts, colour pickers, border patterns, and photos you can place above, below, left or right of the text, or as the background, then drag, zoom and frame. On phones the preview stays pinned while you edit. Saved templates can be reused across invitations. Changes save automatically. |
 | ![Guest list with RSVP totals and WhatsApp buttons](docs/screenshots/guests.png) | **Guest list**<br>Add households with seats and family side, send each one a pre-written WhatsApp message with their own link, see totals at a glance, and export to CSV for the caterer. New replies appear without refreshing. |
 | <img src="docs/screenshots/group-reply.png" alt="Group link reply form asking for name and WhatsApp number" width="260"> | **Group links**<br>One link for a group chat, such as old classmates. Each person enters their name and WhatsApp number and is added to the guest list. Replying again from the same number updates the earlier reply. Replies that match someone already on the list by number or name are flagged as possible duplicates, and a group reply can never overwrite a personal guest's answer. |
 | <img src="docs/screenshots/guest-phone.png" alt="Guest's invitation on a phone with an RSVP form" width="260"> | **Guest page**<br>Each guest sees the card with their name on it, Maps and calendar buttons, and an RSVP form limited to the seats they were given. No sign-up needed. |

@@ -2,7 +2,7 @@
 import { sb, requireUser, signOut, $, toast, isConfigured, showSetupNotice } from "./sb.js";
 import {
   esc, clamp, FONTS, PRESETS, presetById, cleanStyle, cleanPhoto, cleanDetails, imgCSS, SHAPE_DEF,
-  cardHTML, thumbHTML, photoUrl, watchPhotos, fmtDate,
+  cardHTML, thumbHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor,
 } from "./card.js";
 
 if (!isConfigured) showSetupNotice();
@@ -41,7 +41,7 @@ async function init() {
     const base = presetById(data.template)?.style || PRESETS[0].style;
     inv = { id: data.id, template: data.template, details: cleanDetails(data.details), style: cleanStyle(data.style, base), photo: cleanPhoto(data.photo) };
     group = data && "group_token" in data ? { token: data.group_token, enabled: !!data.group_enabled, max: data.group_max_seats || 2 } : null;
-    setupFontSelects(); setupGroup();
+    setupFontSelects(); setupGroup(); setupOccasion();
     fillForm(); renderDesign(); showTab(hashTab === "guests" ? "guests" : "design");
     loadTemplates(); loadGuests(); subscribeGuests();
   }
@@ -57,7 +57,7 @@ function showTab(name) {
   for (const b of $("tabs").children) b.setAttribute("aria-selected", String(b.dataset.tab === name));
   $("v-design").hidden = name !== "design"; $("v-guests").hidden = name !== "guests";
   history.replaceState(null, "", location.pathname + "#" + inv.id + (name === "guests" ? "/guests" : ""));
-  if (name === "guests") renderGroup(); // keeps the group message in step with any name or date changes
+  if (name === "guests") { renderGroup(); renderGuests(); } // keeps WhatsApp messages in step with any name or date changes
 }
 $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && inv) showTab(b.dataset.tab); });
 
@@ -84,7 +84,7 @@ function setupFontSelects() {
     for (const o of sel.options) { o.style.fontFamily = FONTS[o.value][1]; o.style.fontStyle = FONTS[o.value][2] || "normal"; }
   }
 }
-const initials = () => `${(inv.details.name1 || "A")[0]}&${(inv.details.name2 || "B")[0]}`;
+const initials = () => initialsFor(inv.details);
 function baseStyleOf(tid) {
   if (tid?.startsWith("mine:")) { const t = myTpls.find((x) => x.id === tid.slice(5)); if (t) return t.style; }
   return (presetById(tid) || PRESETS[0]).style;
@@ -113,8 +113,35 @@ function fillStyle() {
 }
 function fillForm() {
   for (const el of document.querySelectorAll("#designForm [data-k]")) if (el !== document.activeElement) el.value = inv.details[el.dataset.k] ?? "";
-  fillStyle(); renderTemplates(); fillPhoto();
+  fillOccasion(); fillStyle(); renderTemplates(); fillPhoto();
 }
+
+/* ---------- occasion: changes the name fields, default wording and suggested template ---------- */
+function setupOccasion() {
+  $("occasion").innerHTML = Object.entries(OCCASIONS).map(([k, o]) => `<option value="${k}">${esc(o.label)}</option>`).join("");
+}
+function fillOccasion() {
+  const occ = occasionOf(inv.details);
+  $("occasion").value = inv.details.occasion;
+  $("namesLegend").textContent = occ.legend;
+  $("l1").textContent = occ.l1; $("l2").textContent = occ.l2;
+  $("name1").placeholder = occ.two ? "e.g. Hakim" : occ.ph1;
+  $("name2").placeholder = occ.two ? "e.g. Nadia" : (occ.ex2 || "");
+}
+$("occasion").addEventListener("change", (e) => {
+  const prev = occasionOf(inv.details), next = OCCASIONS[e.target.value];
+  if (!next) return;
+  const d = { ...inv.details, occasion: e.target.value };
+  // Swap in the new occasion's wording, but never overwrite words the user typed themselves.
+  if (!d.headline.trim() || d.headline === prev.headline) d.headline = next.headline;
+  if (!d.message.trim() || d.message === prev.message) d.message = next.message;
+  inv.details = cleanDetails(d);
+  // Likewise, switch to the occasion's template only if the old occasion's template was still untouched.
+  const untouched = inv.template === prev.template && JSON.stringify(cleanStyle(baseStyleOf(inv.template))) === JSON.stringify(inv.style);
+  if (untouched && presetById(next.template)) { inv.template = next.template; inv.style = cleanStyle(presetById(next.template).style); }
+  fillForm(); queueSave();
+  toast(`Set up for ${next.label.toLowerCase()}`);
+});
 function renderDesign() { $("designCard").innerHTML = cardHTML(inv); fitPreview(); }
 
 /* ---------- phone preview: pinned, scaled to fit, can be hidden or opened full size ---------- */
@@ -220,8 +247,8 @@ function fillPhoto() {
     for (const el of $("photoOpts").querySelectorAll("[data-p]")) if (!(el === document.activeElement && el.type !== "range")) el.value = p[el.dataset.p];
     $("oSize").textContent = p.size + "%"; $("oH").textContent = p.h + "%";
     $("oPosX").textContent = p.dx; $("oPosY").textContent = p.dy; $("oZoom").textContent = p.zoom + "%"; $("oFade").textContent = p.fade + "%";
-    const top = p.mode === "top";
-    $("pShapeWrap").hidden = !top; $("pSizeRow").hidden = !top; $("matchFrame").hidden = !top; $("pFadeWrap").hidden = top;
+    const framed = p.mode !== "background";
+    $("pShapeWrap").hidden = !framed; $("pSizeRow").hidden = !framed; $("matchFrame").hidden = !framed; $("pFadeWrap").hidden = framed;
   }
   $("removePhoto").textContent = confirmPhoto ? "Confirm remove" : "Remove photo";
   $("removePhoto").className = "btn sm " + (confirmPhoto ? "danger" : "ghost");
@@ -320,9 +347,8 @@ $("designCard").addEventListener("pointercancel", endDrag);
 const groupLink = () => new URL("invite.html", location.href).href + "#g/" + group.token;
 function groupText() {
   const d = inv.details;
-  const who = [d.name1, d.name2].filter(Boolean).join(" & ") || "We";
   const when = fmtDate(d.date), by = fmtDate(d.rsvpBy);
-  return `${who} would love for you to join their wedding${when ? " on " + when : ""}! Tap the link to see the invitation and reply${by ? " by " + by : ""}. One reply per household, please: ${groupLink()}`;
+  return `${inviteLine(d)}${when ? " on " + when : ""}! Tap the link to see the invitation and reply${by ? " by " + by : ""}. One reply per household, please: ${groupLink()}`;
 }
 function setupGroup() {
   $("grpMax").innerHTML = Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1} ${i ? "people" : "person"}</option>`).join("");
@@ -374,9 +400,8 @@ const guestLink = (g) => new URL("invite.html", location.href).href + "#" + g.to
 function waNumber(p) { let d = String(p || "").replace(/\D/g, ""); if (d.length === 8) d = "65" + d; return d; }
 function inviteText(g) {
   const d = inv.details;
-  const who = [d.name1, d.name2].filter(Boolean).join(" & ") || "We";
   const when = fmtDate(d.date), by = fmtDate(d.rsvpBy);
-  return `Hi ${g.name}! ${who} would love for you to join their wedding${when ? " on " + when : ""}. Here's your invitation${by ? ", please reply by " + by : ""}: ${guestLink(g)}`;
+  return `Hi ${g.name}! ${inviteLine(d)}${when ? " on " + when : ""}. Here's your invitation${by ? ", please reply by " + by : ""}: ${guestLink(g)}`;
 }
 async function loadGuests() {
   const { data, error } = await sb.from("guests").select("*").eq("invitation_id", inv.id).order("created_at");
@@ -479,7 +504,7 @@ $("csv").addEventListener("click", () => {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
   const d = inv.details;
-  a.download = `guest-list-${[d.name1, d.name2].filter(Boolean).join("-") || "wedding"}.csv`.replace(/[^\w.-]+/g, "-");
+  a.download = `guest-list-${[d.name1, d.name2].filter(Boolean).join("-") || "event"}.csv`.replace(/[^\w.-]+/g, "-");
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
 
