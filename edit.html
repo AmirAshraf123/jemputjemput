@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="css/card.css">
 </head>
 
-<body>
+<body class="editor">
   <header class="top">
     <div class="wrap">
       <a class="brand" href="app.html"><img src="img/logo.svg" width="34" height="34" alt=""><b>Jemput</b><span>← all
@@ -178,9 +178,19 @@
             <label class="f">Dress code<input id="dress" data-k="dress" maxlength="80"></label>
           </fieldset>
         </div>
-        <div class="preview">
+        <div class="preview" id="preview">
           <h2 class="sec">Preview</h2>
-          <div id="designCard"></div>
+          <div class="pv-frame" id="pvFrame">
+            <div class="pv-scale" id="pvScale">
+              <div id="designCard"></div>
+            </div>
+          </div>
+          <div class="pv-bar">
+            <span class="pv-save" id="pvSave" aria-live="polite"></span>
+            <button type="button" class="btn sm ghost" id="pvFull">Full size</button>
+            <button type="button" class="btn sm ghost" id="pvToggle" aria-expanded="true" aria-controls="pvFrame">Hide
+              preview</button>
+          </div>
         </div>
       </div>
     </section>
@@ -264,6 +274,10 @@
       </div>
     </section>
   </main>
+  <div class="pv-full" id="pvFullView" role="dialog" aria-modal="true" aria-label="Card preview, full size" hidden>
+    <div class="pv-full-bar"><span>Preview</span><button type="button" class="btn sm" id="pvClose">Done</button></div>
+    <div class="pv-full-body" id="pvFullCard"></div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script type="module" src="js/edit.js"></script>

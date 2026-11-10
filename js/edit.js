@@ -115,7 +115,47 @@ function fillForm() {
   for (const el of document.querySelectorAll("#designForm [data-k]")) if (el !== document.activeElement) el.value = inv.details[el.dataset.k] ?? "";
   fillStyle(); renderTemplates(); fillPhoto();
 }
-function renderDesign() { $("designCard").innerHTML = cardHTML(inv); }
+function renderDesign() { $("designCard").innerHTML = cardHTML(inv); fitPreview(); }
+
+/* ---------- phone preview: pinned, scaled to fit, can be hidden or opened full size ---------- */
+const phone = matchMedia("(max-width: 880px)");
+function fitPreview() {
+  const scale = $("pvScale"), card = $("designCard").firstElementChild;
+  if (!phone.matches || !card || $("preview").classList.contains("collapsed")) { scale.style.transform = ""; return; }
+  const frame = $("pvFrame");
+  const s = Math.min(1, frame.clientHeight / card.offsetHeight, frame.clientWidth / scale.offsetWidth);
+  scale.style.transform = `scale(${s.toFixed(3)})`;
+}
+new ResizeObserver(() => fitPreview()).observe($("designCard"));   // fonts and photos change the card's height
+phone.addEventListener("change", fitPreview);
+window.addEventListener("resize", fitPreview);
+function setCollapsed(c) {
+  $("preview").classList.toggle("collapsed", c);
+  $("pvToggle").textContent = c ? "Show preview" : "Hide preview";
+  $("pvToggle").setAttribute("aria-expanded", String(!c));
+  try { localStorage.setItem("jemput.previewHidden", c ? "1" : ""); } catch { }
+  fitPreview();
+}
+$("pvToggle").addEventListener("click", () => setCollapsed(!$("preview").classList.contains("collapsed")));
+try { if (localStorage.getItem("jemput.previewHidden")) setCollapsed(true); } catch { }
+let pvReturnFocus = null;
+function openFull() {
+  pvReturnFocus = document.activeElement;
+  $("pvFullCard").innerHTML = cardHTML(inv);
+  $("pvFullView").hidden = false; document.body.style.overflow = "hidden";
+  $("pvClose").focus();
+}
+function closeFull() {
+  $("pvFullView").hidden = true; document.body.style.overflow = "";
+  $("pvFullCard").innerHTML = "";
+  pvReturnFocus?.focus?.();
+}
+$("pvFull").addEventListener("click", openFull);
+$("pvClose").addEventListener("click", closeFull);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("pvFullView").hidden) closeFull(); });
+// Show the save status next to the preview too, since the header scrolls away on phones.
+new MutationObserver(() => { $("pvSave").textContent = $("saveState").textContent; })
+  .observe($("saveState"), { childList: true, characterData: true, subtree: true });
 
 $("designForm").addEventListener("input", (e) => {
   const t = e.target;
