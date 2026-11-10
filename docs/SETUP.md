@@ -24,7 +24,8 @@ All file paths below are relative to the top of the project folder.
 | `js/sb.js` | Connects to Supabase and a few shared helpers |
 | `css/base.css`, `css/card.css` | Site styles and card styles |
 | `img/` | The Jemput logo (`logo.svg`, `logo-120.png`, `logo-512.png`) and browser and phone icons |
-| `supabase/schema.sql` | Sets up the database, security rules and photo storage |
+| `supabase/schema.sql` | Sets up the database, security rules and photo storage (for a new setup) |
+| `supabase/002_group_links.sql` | One-time update for setups made before group links existed |
 | `.github/workflows/keep-awake.yml` | Optional: keeps a free Supabase project from pausing (step 6C) |
 
 ## Setup (about 15 minutes)
@@ -38,6 +39,8 @@ All file paths below are relative to the top of the project folder.
 2. Open `supabase/schema.sql`, copy everything, paste it in, and click **Run**. You should see "Success".
 
 This creates the tables, makes sure each person can only see their own invitations, sets up the photo storage, and adds the two functions guests use to view their invitation and reply. Guests never need an account.
+
+> **Already set up Jemput before group links were added?** Run `supabase/002_group_links.sql` the same way, once. It adds group links without touching your existing invitations or guests. Until you do, everything else keeps working and the Guests tab shows a reminder.
 
 ### 3. Connect the website to your project
 1. In Supabase, go to **Project Settings → API**.

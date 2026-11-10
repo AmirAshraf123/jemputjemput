@@ -18,6 +18,7 @@ window.addEventListener("hashchange", () => {
 });
 
 let inv = null;            // { id, template, details, style, photo }
+let group = null;          // { token, enabled, max } or null when the database update hasn't been run
 let guests = [], myTpls = [];
 let filter = "all", confirmDel = null, confirmTpl = null, confirmPhoto = false;
 let saveTimer = null, dirty = false, photoBusy = false, drag = null;
@@ -27,14 +28,20 @@ async function init() {
   if (!user) return;
   $("signOut").onclick = signOut;
   if (!invId) { showProblem("This page was opened without an invitation. Pick one from your invitations."); return; }
-  const { data, error } = await sb.from("invitations").select("id, template, details, style, photo").eq("id", invId).maybeSingle();
+  let { data, error } = await sb.from("invitations")
+    .select("id, template, details, style, photo, group_token, group_enabled, group_max_seats").eq("id", invId).maybeSingle();
+  if (error && /group_/.test(error.message)) {
+    // The group-link database update (supabase/002_group_links.sql) hasn't been run yet. Everything else still works.
+    ({ data, error } = await sb.from("invitations").select("id, template, details, style, photo").eq("id", invId).maybeSingle());
+  }
   if (error) { showProblem("Couldn't load this invitation: " + error.message); return; }
   if (!data) {
     showProblem("This invitation doesn't exist or belongs to another account.");
   } else {
     const base = presetById(data.template)?.style || PRESETS[0].style;
     inv = { id: data.id, template: data.template, details: cleanDetails(data.details), style: cleanStyle(data.style, base), photo: cleanPhoto(data.photo) };
-    setupFontSelects();
+    group = data && "group_token" in data ? { token: data.group_token, enabled: !!data.group_enabled, max: data.group_max_seats || 2 } : null;
+    setupFontSelects(); setupGroup();
     fillForm(); renderDesign(); showTab(hashTab === "guests" ? "guests" : "design");
     loadTemplates(); loadGuests(); subscribeGuests();
   }
@@ -50,6 +57,7 @@ function showTab(name) {
   for (const b of $("tabs").children) b.setAttribute("aria-selected", String(b.dataset.tab === name));
   $("v-design").hidden = name !== "design"; $("v-guests").hidden = name !== "guests";
   history.replaceState(null, "", location.pathname + "#" + inv.id + (name === "guests" ? "/guests" : ""));
+  if (name === "guests") renderGroup(); // keeps the group message in step with any name or date changes
 }
 $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && inv) showTab(b.dataset.tab); });
 
@@ -268,6 +276,59 @@ function endDrag() { if (!drag) return; drag.box.classList.remove("dragging"); d
 $("designCard").addEventListener("pointerup", endDrag);
 $("designCard").addEventListener("pointercancel", endDrag);
 
+/* ---------- group link ---------- */
+const groupLink = () => new URL("invite.html", location.href).href + "#g/" + group.token;
+function groupText() {
+  const d = inv.details;
+  const who = [d.name1, d.name2].filter(Boolean).join(" & ") || "We";
+  const when = fmtDate(d.date), by = fmtDate(d.rsvpBy);
+  return `${who} would love for you to join their wedding${when ? " on " + when : ""}! Tap the link to see the invitation and reply${by ? " by " + by : ""}. One reply per household, please: ${groupLink()}`;
+}
+function setupGroup() {
+  $("grpMax").innerHTML = Array.from({ length: 10 }, (_, i) => `<option value="${i + 1}">${i + 1} ${i ? "people" : "person"}</option>`).join("");
+  renderGroup();
+}
+function renderGroup() {
+  if (!group) { $("grpSetup").hidden = false; $("grpOn").disabled = true; $("grpOff").hidden = true; $("grpBody").hidden = true; return; }
+  $("grpOn").checked = group.enabled;
+  $("grpBody").hidden = !group.enabled; $("grpOff").hidden = group.enabled;
+  $("grpMax").value = String(group.max);
+  $("grpLink").value = groupLink();
+  $("grpWa").href = "https://wa.me/?text=" + encodeURIComponent(groupText());
+  $("grpPreview").href = groupLink() + "/preview";
+  $("grpNew").textContent = confirmNewLink ? "Old link will stop working. Confirm" : "Make a new link";
+  $("grpNew").className = "btn sm " + (confirmNewLink ? "danger" : "ghost");
+}
+let confirmNewLink = false;
+async function saveGroup(fields, okMsg) {
+  const { error } = await sb.from("invitations").update(fields).eq("id", inv.id);
+  if (error) { toast("Couldn't save: " + error.message); return false; }
+  if (okMsg) toast(okMsg);
+  return true;
+}
+$("grpOn").addEventListener("change", async (e) => {
+  const on = e.target.checked;
+  if (await saveGroup({ group_enabled: on }, on ? "Group link is on" : "Group link is off. It won't open for anyone now")) group.enabled = on;
+  renderGroup();
+});
+$("grpMax").addEventListener("change", async (e) => {
+  const max = Math.round(clamp(e.target.value, 1, 20, 2));
+  if (await saveGroup({ group_max_seats: max }, "Saved")) group.max = max;
+  renderGroup();
+});
+$("grpCopy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(groupText()); toast("Message with the group link copied"); }
+  catch { $("grpLink").select(); toast("Couldn't copy automatically. The link is selected, so copy it from there."); }
+});
+$("grpLink").addEventListener("focus", (e) => e.target.select());
+$("grpNew").addEventListener("click", async () => {
+  if (!confirmNewLink) { confirmNewLink = true; renderGroup(); return; }
+  confirmNewLink = false;
+  const token = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (await saveGroup({ group_token: token }, "New link made. The old one no longer works")) group.token = token;
+  renderGroup();
+});
+
 /* ---------- guests ---------- */
 const guestLink = (g) => new URL("invite.html", location.href).href + "#" + g.token;
 function waNumber(p) { let d = String(p || "").replace(/\D/g, ""); if (d.length === 8) d = "65" + d; return d; }
@@ -302,7 +363,12 @@ function renderStats() {
 }
 function renderGuests() {
   renderStats();
-  const list = guests.filter((g) => filter === "all" || g.status === filter);
+  const dups = guests.filter((g) => g.dup_reason);
+  $("dupChip").hidden = !dups.length;
+  $("dupChip").textContent = `Possible duplicates (${dups.length})`;
+  if (filter === "dup" && !dups.length) filter = "all";
+  const list = guests.filter((g) => filter === "all" || (filter === "dup" ? g.dup_reason : g.status === filter));
+  for (const c of $("filters").querySelectorAll(".chip")) c.setAttribute("aria-pressed", String(c.dataset.f === filter));
   if (!list.length) {
     $("gBody").innerHTML = `<tr><td colspan="6" class="empty">${guests.length ? "No guests match this filter." : "No guests yet. Add the first household above."}</td></tr>`;
     return;
@@ -311,7 +377,8 @@ function renderGuests() {
   $("gBody").innerHTML = list.map((g) => {
     const wa = waNumber(g.phone);
     return `<tr>
-      <td><b>${esc(g.name)}</b>${g.phone ? `<div class="sub">${esc(g.phone)}</div>` : ""}</td>
+      <td><b>${esc(g.name)}</b>${g.source === "group" ? ` <span class="tag">Group link</span>` : ""}${g.phone ? `<div class="sub">${esc(g.phone)}</div>` : ""}
+        ${g.dup_reason ? `<div class="dup"><span>Possible duplicate: ${esc(g.dup_reason)}</span> <button class="linkbtn" data-act="notdup" data-id="${g.id}">Not a duplicate</button></div>` : ""}</td>
       <td>${esc(g.side)}</td>
       <td class="num">${g.status === "yes" ? `${g.coming} of ${g.seats}` : g.seats}</td>
       <td><span class="pill ${esc(g.status)}">${label[g.status] || "Waiting"}</span></td>
@@ -336,6 +403,10 @@ $("gBody").addEventListener("click", async (e) => {
   if (b.dataset.act === "copy") {
     try { await navigator.clipboard.writeText(inviteText(g)); toast("Invitation message copied"); }
     catch { toast("Couldn't copy automatically. Use Preview to get the link."); }
+  } else if (b.dataset.act === "notdup") {
+    const { error } = await sb.from("guests").update({ dup_of: null, dup_reason: "" }).eq("id", g.id);
+    if (error) { toast("Couldn't update: " + error.message); return; }
+    g.dup_of = null; g.dup_reason = ""; renderGuests(); toast("Marked as not a duplicate");
   } else if (b.dataset.act === "del") {
     if (confirmDel !== g.id) { confirmDel = g.id; renderGuests(); return; }
     confirmDel = null;
@@ -359,10 +430,11 @@ $("addForm").addEventListener("submit", async (e) => {
   toast(`Added ${row.name}`);
 });
 $("csv").addEventListener("click", () => {
-  const head = ["Name", "Phone", "Side", "Seats", "Reply", "Coming", "Dietary", "Note", "Replied at", "Invitation link"];
+  const head = ["Name", "Phone", "Side", "Seats", "Reply", "Coming", "Dietary", "Note", "Replied at", "Added by", "Possible duplicate", "Invitation link"];
   const label = { yes: "Coming", no: "Can't make it", pending: "Waiting" };
   const rows = guests.map((g) => [g.name, g.phone, g.side, g.seats, label[g.status], g.coming, g.dietary, g.note,
-    g.responded_at ? new Date(g.responded_at).toLocaleString("en-SG") : "", guestLink(g)]);
+  g.responded_at ? new Date(g.responded_at).toLocaleString("en-SG") : "", g.source === "group" ? "Group link" : "You",
+  g.dup_reason || "", guestLink(g)]);
   const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));

@@ -36,7 +36,7 @@ export function showSetupNotice() {
   const msg = {
     invalid: "The Supabase URL in <code>js/config.js</code> isn't a web address. It should look like <code>https://abcdefghijkl.supabase.co</code>.",
     dashboard: "<code>js/config.js</code> has a Supabase dashboard link instead of the Project URL. Copy the URL from Project Settings → Data API. It looks like <code>https://abcdefghijkl.supabase.co</code>.",
-  }[urlProblem] || "Add your Supabase Project URL and anon key to <code>js/config.js</code>, then reload. The README walks through it.";
+  }[urlProblem] || "Add your Supabase Project URL and anon key to <code>js/config.js</code>, then reload. See docs/SETUP.md for where to find them.";
   n.innerHTML = "<b>Almost there.</b> " + msg;
   document.querySelector("main")?.prepend(n);
 }
