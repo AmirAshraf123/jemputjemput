@@ -136,7 +136,19 @@
                 <label class="f">Names<input type="color" id="sAccent" data-s="accent"></label>
                 <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
                 <label class="f">Border 2<input type="color" id="sFrameB" data-s="frameB"></label>
+                <label class="f">Heading<input type="color" id="sHead" data-s="headColor"></label>
               </div>
+              <div class="readability" id="readBox" role="status"></div>
+              <h3 class="sub-h">Heading style</h3>
+              <div class="row">
+                <label class="f">Letters<select id="sHeadCase" data-s="headCase">
+                    <option value="upper">CAPITALS</option>
+                    <option value="normal">As typed</option>
+                  </select></label>
+                <label class="f">Letter spacing <output id="oHeadSpacing"></output><input type="range" id="sHeadSpacing"
+                    data-s="headSpacing" min="0" max="40" step="1"></label>
+              </div>
+              <label class="chk"><input type="checkbox" id="sHeadItalic" data-s="headItalic"> Italic heading</label>
               <h3 class="sub-h">Border and details</h3>
               <div class="row">
                 <label class="f">Border pattern<select id="sFrame" data-s="frame">
@@ -157,8 +169,13 @@
                     <option value="flourish">❦</option>
                     <option value="none">None</option>
                   </select></label>
-                <label class="f">Corners <output id="oRadius"></output><input type="range" id="sRadius" data-s="radius"
-                    min="0" max="28" step="1"></label>
+                <label class="f">Rounded corners <output id="oRadius"></output><input type="range" id="sRadius"
+                    data-s="radius" min="0" max="28" step="1"></label>
+              </div>
+              <div class="row">
+                <label class="f">Corner ornament<select id="sCorners" data-s="corners"></select></label>
+                <label class="f">Background<select id="sTexture" data-s="texture"></select></label>
+                <label class="f" id="bg2Wrap">Gradient end colour<input type="color" id="sBg2" data-s="bg2"></label>
               </div>
               <label class="chk"><input type="checkbox" id="sLine" data-s="line"> Thin inner frame line (uses Border 1
                 colour)</label>
@@ -206,6 +223,61 @@
               <label class="f">Dress code<input id="dress" data-k="dress" maxlength="80"></label>
             </div>
           </fieldset>
+          <fieldset>
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec7"><span
+                  class="sec-title">Extra lines and schedule</span></button></legend>
+            <div class="sec-body" id="sec7">
+              <p class="hint">Add a programme, like "10:00 AM · Akad nikah", or notes such as parking or "No boxed
+                gifts, please". The time is optional.</p>
+              <div class="extras-list" id="extrasList"></div>
+              <div><button type="button" class="btn sm ghost" id="addExtra">Add a line</button></div>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec8"><span
+                  class="sec-title">Second language</span></button></legend>
+            <div class="sec-body" id="sec8">
+              <label class="f">Language<select id="altScript" data-k="altScript"></select></label>
+              <div id="altFields" class="alt-fields">
+                <label class="f">Heading in the second language<input id="altHeadline" data-k="altHeadline"
+                    maxlength="100"></label>
+                <label class="f">Names in the second language (optional)<input id="altNames" data-k="altNames"
+                    maxlength="100"></label>
+                <label class="f">Message in the second language<textarea id="altMessage" data-k="altMessage"
+                    maxlength="400"></textarea></label>
+              </div>
+              <p class="hint">Each line appears under its English version, in a font made for that script.</p>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec9"><span
+                  class="sec-title">Card shape and layout</span></button></legend>
+            <div class="sec-body" id="sec9">
+              <label class="f">Shape<select id="sShape" data-s="shape"></select></label>
+              <h3 class="sub-h">Order of the card</h3>
+              <p class="hint">Move parts up or down, or untick one to hide it.</p>
+              <ol class="sec-list" id="secList"></ol>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec10"><span
+                  class="sec-title">When guests open it</span></button></legend>
+            <div class="sec-body" id="sec10">
+              <label class="f">Opening<select id="opening" data-k="opening"></select></label>
+              <h3 class="sub-h">Background music</h3>
+              <div id="musicNone">
+                <label class="btn sm ghost" for="musicFile" id="musicBtn">Add music</label>
+                <input type="file" id="musicFile" accept="audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,.mp3,.m4a,.aac"
+                  hidden>
+              </div>
+              <div id="musicSet" hidden class="music-set">
+                <audio id="musicPreview" controls preload="none"></audio>
+                <button type="button" class="btn sm ghost" id="removeMusic">Remove music</button>
+              </div>
+              <p class="hint" id="musicNote">MP3 or M4A, up to 10 MB. Guests tap a play button to start it. Only use
+                music you have the right to share.</p>
+            </div>
+          </fieldset>
         </div>
         <div class="preview" id="preview">
           <h2 class="sec">Preview</h2>
@@ -216,6 +288,7 @@
           </div>
           <div class="pv-bar">
             <span class="pv-save" id="pvSave" aria-live="polite"></span>
+            <button type="button" class="btn sm ghost" id="pvDownload">Save image</button>
             <button type="button" class="btn sm ghost" id="pvFull">Full size</button>
             <button type="button" class="btn sm ghost" id="pvToggle" aria-expanded="true" aria-controls="pvFrame">Hide
               preview</button>
@@ -316,7 +389,9 @@
     </section>
   </main>
   <div class="pv-full" id="pvFullView" role="dialog" aria-modal="true" aria-label="Card preview, full size" hidden>
-    <div class="pv-full-bar"><span>Preview</span><button type="button" class="btn sm" id="pvClose">Done</button></div>
+    <div class="pv-full-bar"><span>Preview</span><span class="acts"><button type="button" class="btn sm ghost"
+          id="pvFullDownload">Save image</button><button type="button" class="btn sm" id="pvClose">Done</button></span>
+    </div>
     <div class="pv-full-body" id="pvFullCard"></div>
   </div>
 

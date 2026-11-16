@@ -250,8 +250,8 @@ exception when duplicate_object then null; end $$;
 -- only the owner can upload or delete, inside their own folder.
 -- ─────────────────────────────────────────────────────────────
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('photos', 'photos', true, 10485760, array['image/jpeg','image/png','image/webp','image/gif'])
-on conflict (id) do nothing;
+values ('photos', 'photos', true, 10485760, array['image/jpeg','image/png','image/webp','image/gif','audio/mpeg','audio/mp4','audio/aac','audio/x-m4a'])
+on conflict (id) do update set allowed_mime_types = excluded.allowed_mime_types;   -- photos and background music
 
 drop policy if exists "photos: read own" on storage.objects;
 create policy "photos: read own" on storage.objects for select to authenticated

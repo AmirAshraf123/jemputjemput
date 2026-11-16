@@ -3,6 +3,7 @@ import { sb, requireUser, signOut, $, toast, isConfigured, showSetupNotice } fro
 import {
   esc, clamp, FONTS, PRESETS, presetById, cleanStyle, cleanPhoto, cleanDetails, imgCSS, SHAPE_DEF,
   cardHTML, thumbHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor, ensureFonts,
+  CORNERS, TEXTURES, SHAPES, ALT_SCRIPTS, SECTIONS, OPENINGS, readabilityIssues, musicUrl, eventTitle, fontCSSUrl, cardFontKeys,
 } from "./card.js";
 
 if (!isConfigured) showSetupNotice();
@@ -42,7 +43,7 @@ async function init() {
     const base = presetById(data.template)?.style || PRESETS[0].style;
     inv = { id: data.id, template: data.template, details: cleanDetails(data.details), style: cleanStyle(data.style, base), photo: cleanPhoto(data.photo) };
     group = data && "group_token" in data ? { token: data.group_token, enabled: !!data.group_enabled, max: data.group_max_seats || 2 } : null;
-    setupFontSelects(); setupGroup(); setupOccasion();
+    setupFontSelects(); setupGroup(); setupOccasion(); setupCustomise();
     fillForm(); renderDesign(); showTab(hashTab === "guests" ? "guests" : "design");
     loadTemplates(); loadGuests(); subscribeGuests();
   }
@@ -111,12 +112,139 @@ function fillStyle() {
     if (el === document.activeElement && el.type !== "range") continue;
     if (el.type === "checkbox") el.checked = !!s[el.dataset.s]; else el.value = s[el.dataset.s];
   }
+  $("oHeadSpacing").textContent = s.headSpacing ? (s.headSpacing / 100).toFixed(2) + " em" : "none";
+  $("bg2Wrap").hidden = s.texture !== "gradient";
   $("oNameSize").textContent = s.nameSize + "px"; $("oBodySize").textContent = s.bodySize + "px"; $("oRadius").textContent = s.radius + "px";
 }
 function fillForm() {
   for (const el of document.querySelectorAll("#designForm [data-k]")) if (el !== document.activeElement) el.value = inv.details[el.dataset.k] ?? "";
-  fillOccasion(); fillStyle(); renderTemplates(); fillPhoto();
+  fillOccasion(); fillStyle(); renderTemplates(); fillPhoto(); fillCustomise();
 }
+
+/* ---------- extra lines, second language, layout, opening and music ---------- */
+const options = (obj) => Object.entries(obj).map(([k, v]) => `<option value="${k}">${esc(v.label || v)}</option>`).join("");
+function setupCustomise() {
+  $("sCorners").innerHTML = options(CORNERS); $("sTexture").innerHTML = options(TEXTURES); $("sShape").innerHTML = options(SHAPES);
+  $("altScript").innerHTML = options(ALT_SCRIPTS); $("opening").innerHTML = options(OPENINGS);
+}
+function fillCustomise() { renderExtras(); renderSectionList(); fillAlt(); fillMusic(); }
+
+function renderExtras() {
+  const list = inv.details.extras;
+  $("extrasList").innerHTML = list.map((x, i) => `<div class="extra-row">
+      <label class="f extra-time"><span class="vh">Time for line ${i + 1}</span><input id="xTime${i}" data-x="time" data-i="${i}" maxlength="24" placeholder="Time (optional)" value="${esc(x.time)}"></label>
+      <label class="f extra-text"><span class="vh">Line ${i + 1}</span><input id="xText${i}" data-x="text" data-i="${i}" maxlength="120" placeholder="e.g. Akad nikah" value="${esc(x.text)}"></label>
+      <button type="button" class="btn sm ghost" data-xdel="${i}" aria-label="Remove line ${i + 1}">Remove</button></div>`).join("")
+    || `<p class="hint">No extra lines yet.</p>`;
+  $("addExtra").disabled = list.length >= 8;
+  $("addExtra").textContent = list.length >= 8 ? "Up to 8 lines" : "Add a line";
+}
+$("extrasList").addEventListener("input", (e) => {
+  const t = e.target; if (!t.dataset.x) return;
+  const extras = inv.details.extras.map((x) => ({ ...x }));
+  extras[+t.dataset.i][t.dataset.x] = t.value;
+  inv.details = cleanDetails({ ...inv.details, extras }); queueSave();
+});
+$("extrasList").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-xdel]"); if (!b) return;
+  const extras = inv.details.extras.filter((_, i) => i !== +b.dataset.xdel);
+  inv.details = cleanDetails({ ...inv.details, extras }); renderExtras(); queueSave();
+  $("addExtra").focus();
+});
+$("addExtra").addEventListener("click", () => {
+  inv.details = cleanDetails({ ...inv.details, extras: [...inv.details.extras, { time: "", text: "" }] });
+  renderExtras(); queueSave();
+  $("xText" + (inv.details.extras.length - 1))?.focus();
+});
+
+function renderSectionList() {
+  const { order, hidden } = inv.details;
+  $("secList").innerHTML = order.map((k, i) => `<li class="sec-item${hidden.includes(k) ? " is-hidden" : ""}">
+      <label class="chk"><input type="checkbox" data-show="${k}" ${hidden.includes(k) ? "" : "checked"}> ${esc(SECTIONS[k])}</label>
+      <span class="acts">
+        <button type="button" class="btn sm ghost" id="up-${k}" data-move="${k}" data-dir="-1" ${i === 0 ? "disabled" : ""} aria-label="Move ${esc(SECTIONS[k])} up">Up</button>
+        <button type="button" class="btn sm ghost" id="down-${k}" data-move="${k}" data-dir="1" ${i === order.length - 1 ? "disabled" : ""} aria-label="Move ${esc(SECTIONS[k])} down">Down</button>
+      </span></li>`).join("");
+}
+$("secList").addEventListener("change", (e) => {
+  const k = e.target.dataset.show; if (!k) return;
+  const hidden = e.target.checked ? inv.details.hidden.filter((x) => x !== k) : [...inv.details.hidden, k];
+  inv.details = cleanDetails({ ...inv.details, hidden }); renderSectionList(); queueSave();
+  document.querySelector(`[data-show="${k}"]`)?.focus();
+});
+$("secList").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-move]"); if (!b) return;
+  const order = [...inv.details.order], i = order.indexOf(b.dataset.move), j = i + +b.dataset.dir;
+  if (j < 0 || j >= order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  inv.details = cleanDetails({ ...inv.details, order }); renderSectionList(); queueSave();
+  const again = $(`${b.dataset.dir === "-1" ? "up" : "down"}-${b.dataset.move}`);
+  (again && !again.disabled ? again : $(`${b.dataset.dir === "-1" ? "down" : "up"}-${b.dataset.move}`))?.focus();   // keep focus on the item that moved
+});
+
+function fillAlt() {
+  const a = ALT_SCRIPTS[inv.details.altScript];
+  $("altFields").hidden = !inv.details.altScript;
+  for (const id of ["altHeadline", "altNames", "altMessage"]) {
+    $(id).dir = a.rtl ? "rtl" : "auto";
+    $(id).style.fontFamily = a.font || "";
+  }
+  if (a.key) ensureFonts([a.key]);
+}
+
+/* Readability check: flags text colours that are hard to read on the card, with one-tap fixes. */
+function renderReadability() {
+  const issues = readabilityIssues(inv.style, inv.photo);
+  const box = $("readBox");
+  if (!issues.length) { box.className = "readability ok"; box.innerHTML = `<span>All text is easy to read on this card.</span>`; return; }
+  box.className = "readability warn";
+  box.innerHTML = `<b>Some text may be hard to read</b><ul>${issues.map((x) => `<li><span>${x.photo
+    ? "The photo shows through strongly behind the text."
+    : `${esc(x.label)} colour is too faint on the card colour (contrast ${x.ratio.toFixed(1)}, needs ${x.need}).`}</span>
+      <button type="button" class="btn sm" data-fix="${x.key}">${x.photo ? "Fade the photo more" : `Fix ${esc(x.label.toLowerCase())} colour`}</button></li>`).join("")}</ul>
+      ${issues.length > 1 ? `<button type="button" class="btn sm ghost" data-fix="all">Fix all</button>` : ""}`;
+}
+$("readBox").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-fix]"); if (!b) return;
+  const issues = readabilityIssues(inv.style, inv.photo).filter((x) => b.dataset.fix === "all" || x.key === b.dataset.fix);
+  for (const x of issues) {
+    if (x.photo) inv.photo = cleanPhoto({ ...inv.photo, fade: 70 });
+    else inv.style = cleanStyle({ ...inv.style, [x.key]: x.fix }, inv.style);
+  }
+  fillStyle(); fillPhoto(); renderTemplates(); queueSave(); toast("Colours adjusted so the text is easier to read");
+});
+
+/* Background music: stored next to the photos; guests press play (phones never play sound by themselves). */
+function fillMusic() {
+  const has = !!inv.details.music;
+  $("musicNone").hidden = has; $("musicSet").hidden = !has;
+  if (has && $("musicPreview").dataset.src !== inv.details.music) { $("musicPreview").src = musicUrl(inv.details.music); $("musicPreview").dataset.src = inv.details.music; }
+}
+$("musicFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0]; e.target.value = "";
+  if (!file) return;
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  const type = file.type || { mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac" }[ext];
+  if (!["mp3", "m4a", "aac"].includes(ext) || !type) { toast("Please choose an MP3 or M4A file."); return; }
+  if (file.size > 10 * 1024 * 1024) { toast("That file is over 10 MB. Try a shorter clip or a smaller MP3."); return; }
+  $("musicNote").textContent = "Uploading…";
+  const path = `${user.id}/${inv.id}/music-${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from("photos").upload(path, file, { contentType: type, cacheControl: "31536000", upsert: false });
+  $("musicNote").textContent = "MP3 or M4A, up to 10 MB. Guests tap a play button to start it. Only use music you have the right to share.";
+  if (error) {
+    toast(/mime|type/i.test(error.message) ? "Music needs a one-time update: run supabase/004_music.sql in Supabase, then try again." : "Upload failed: " + error.message);
+    return;
+  }
+  const old = inv.details.music;
+  inv.details = cleanDetails({ ...inv.details, music: path }); fillMusic(); queueSave(); toast("Music added");
+  if (old) sb.storage.from("photos").remove([old]);
+});
+$("removeMusic").addEventListener("click", () => {
+  const old = inv.details.music;
+  inv.details = cleanDetails({ ...inv.details, music: "" }); $("musicPreview").removeAttribute("src"); delete $("musicPreview").dataset.src;
+  fillMusic(); queueSave(); toast("Music removed");
+  if (old) sb.storage.from("photos").remove([old]);
+});
 
 /* ---------- occasion: changes the name fields, default wording and suggested template ---------- */
 function setupOccasion() {
@@ -174,7 +302,7 @@ $("occasion").addEventListener("change", (e) => {
   fillForm(); renderGuests(); queueSave();
   toast(`Set up for ${next.label.toLowerCase()}`);
 });
-function renderDesign() { $("designCard").innerHTML = cardHTML(inv); fitPreview(); }
+function renderDesign() { $("designCard").innerHTML = cardHTML(inv); fitPreview(); renderReadability(); }
 
 /* ---------- phone preview: pinned, scaled to fit, can be hidden or opened full size ---------- */
 const phone = matchMedia("(max-width: 880px)");
@@ -209,6 +337,65 @@ function closeFull() {
   $("pvFullCard").innerHTML = "";
   pvReturnFocus?.focus?.();
 }
+/* Save the card as a picture: 1080px wide, ready for Instagram, Status or printing.
+   On phones that can share files, it opens the share sheet (Save Image, Instagram, WhatsApp…); otherwise it downloads. */
+const IMAGE_LIB = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm";
+// The picture is drawn without the page's stylesheets, so the card's fonts are embedded directly.
+// Only font files covering characters on the card are fetched (Chinese fonts are split into many files).
+async function embeddedFontCSS(text) {
+  const url = fontCSSUrl(cardFontKeys(inv)); if (!url) return "";
+  const css = await (await fetch(url)).text();
+  const used = new Set([...text].map((ch) => ch.codePointAt(0)));
+  const covers = (range) => range.split(",").some((r) => {
+    const [a, b] = r.trim().replace(/^U\+/i, "").split("-").map((h) => parseInt(h.replace(/\?/g, "0"), 16));
+    const hi = b ?? (r.includes("?") ? parseInt(r.trim().replace(/^U\+/i, "").replace(/\?/g, "F"), 16) : a);
+    for (const cp of used) if (cp >= a && cp <= hi) return true;
+    return false;
+  });
+  const blocks = css.match(/@font-face\s*{[^}]*}/g) || [];
+  const keep = blocks.filter((blk) => { const m = blk.match(/unicode-range:\s*([^;]+);/); return !m || covers(m[1]); });
+  const toData = async (u) => { const blob = await (await fetch(u)).blob(); return await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); };
+  const out = [];
+  for (const blk of keep) {
+    const m = blk.match(/url\(([^)]+)\)/); if (!m) continue;
+    out.push(blk.replace(m[0], `url(${await toData(m[1].replace(/["']/g, ""))})`));
+  }
+  return out.join("\n");
+}
+async function saveImage(btn) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Preparing…";
+  const host = document.createElement("div");
+  host.className = "export-host";
+  try {
+    const { toBlob } = await import(IMAGE_LIB);
+    host.innerHTML = cardHTML(inv);
+    document.body.append(host);
+    await document.fonts.ready;
+    await Promise.all([...host.querySelectorAll("img")].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
+    const node = host.firstElementChild;
+    const fontEmbedCSS = await embeddedFontCSS(host.textContent + "&");
+    const blob = await toBlob(node, { pixelRatio: 1080 / node.offsetWidth, cacheBust: true, fontEmbedCSS });
+    if (!blob) throw new Error("empty image");
+    const name = (eventTitle(inv.details).replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, "-") || "invitation") + ".png";
+    const file = new File([blob], name, { type: "image/png" });
+    if (phone.matches && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: eventTitle(inv.details) }).catch(() => { });
+    } else {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      toast("Image saved to your downloads");
+    }
+  } catch (err) {
+    console.error(err);
+    toast("Couldn't create the image. Check your connection and try again, or take a screenshot of the full-size preview.");
+  } finally {
+    host.remove(); btn.disabled = false; btn.textContent = label;
+  }
+}
+$("pvDownload").addEventListener("click", (e) => saveImage(e.currentTarget));
+$("pvFullDownload").addEventListener("click", (e) => saveImage(e.currentTarget));
 $("pvFull").addEventListener("click", openFull);
 $("pvClose").addEventListener("click", closeFull);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("pvFullView").hidden) closeFull(); });
@@ -231,6 +418,7 @@ $("designForm").addEventListener("input", (e) => {
   if (t.dataset.k) {
     inv.details = cleanDetails({ ...inv.details, [t.dataset.k]: t.value });
     if (t.dataset.k === "name1" || t.dataset.k === "name2") renderTemplates();
+    if (t.dataset.k === "altScript") fillAlt();
     queueSave(); return;
   }
   if (t.dataset.s) {

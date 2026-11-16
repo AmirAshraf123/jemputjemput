@@ -34,8 +34,27 @@ const GFAMILY = {
   abril: "Abril+Fatface", poiret: "Poiret+One", greatvibes: "Great+Vibes", parisienne: "Parisienne", amiri: "Amiri:wght@400;700",
   cormorant: "Cormorant+Garamond:ital,wght@0,400;0,600;1,400", cormorantI: "Cormorant+Garamond:ital,wght@0,400;0,600;1,400",
   ebgaramond: "EB+Garamond:ital@0;1", lora: "Lora:ital@0;1", josefin: "Josefin+Sans:wght@300;400;600", figtree: "",
+  notoSC: "Noto+Serif+SC:wght@400;600", notoTamil: "Noto+Serif+Tamil:wght@400;600",
+};
+/** Second language shown under the heading, names and message. */
+export const ALT_SCRIPTS = {
+  "": { label: "None" },
+  same: { label: "Malay or English (same fonts)" },
+  zh: { label: "Chinese", font: "'Noto Serif SC',serif", key: "notoSC" },
+  ta: { label: "Tamil", font: "'Noto Serif Tamil',serif", key: "notoTamil" },
+  jawi: { label: "Jawi or Arabic", font: "'Amiri',serif", key: "amiri", rtl: true },
 };
 const loadedFamilies = new Set(["", "Playfair+Display:ital,wght@0,400;0,500;1,500"]);   // already linked by every page
+/** Google Fonts stylesheet address for these fonts (used to embed fonts when saving the card as a picture). */
+export function fontCSSUrl(keys) {
+  const fams = [...new Set(keys.map((k) => GFAMILY[k]).filter(Boolean))];
+  return fams.length ? "https://fonts.googleapis.com/css2?" + fams.map((f) => "family=" + f).join("&") + "&display=swap" : "";
+}
+/** The font keys a card uses: names, text and any second-language font. */
+export function cardFontKeys(inv) {
+  const s = cleanStyle(inv.style), d = cleanDetails(inv.details), alt = ALT_SCRIPTS[d.altScript];
+  return [s.nameFont, s.bodyFont, alt.key, "figtree", "playfair"].filter(Boolean);
+}
 export function ensureFonts(keys) {
   if (typeof document === "undefined") return;
   const want = [...new Set(keys.map((k) => GFAMILY[k]).filter((f) => f !== undefined && !loadedFamilies.has(f)))];
@@ -148,6 +167,9 @@ export const presetById = (id) => PRESETS.find((p) => p.id === id);
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const FRAMES = ["none", "solid", "double", "diamonds", "checks", "dots", "stripes", "deco", "confetti"];
 const ORNAMENTS = ["rule", "dots", "diamond", "flourish", "none"];
+export const CORNERS = { none: "None", floral: "Flowers", leaf: "Leafy vine", ketupat: "Ketupat weave", mandala: "Mandala arcs" };
+export const TEXTURES = { none: "Plain", paper: "Paper grain", linen: "Linen", dots: "Soft dots", gradient: "Gradient" };
+export const SHAPES = { portrait: "Portrait (fits the text)", square: "Square: Instagram post", story: "Tall: Stories and Status" };
 
 /** Returns a safe, complete style. Anything missing or invalid falls back. */
 export function cleanStyle(s, fallback = PRESETS[0].style) {
@@ -164,7 +186,44 @@ export function cleanStyle(s, fallback = PRESETS[0].style) {
     nameSize: clamp(s.nameSize, 28, 64, f.nameSize),
     bodySize: clamp(s.bodySize, 13, 20, f.bodySize),
     radius: clamp(s.radius, 0, 28, f.radius),
+    // added later; older designs fall back to how cards looked before
+    headColor: HEX.test(s.headColor) ? s.headColor : (HEX.test(f.headColor) ? f.headColor : col("ink")),
+    headCase: ["upper", "normal"].includes(s.headCase) ? s.headCase : (f.headCase || "upper"),
+    headItalic: typeof s.headItalic === "boolean" ? s.headItalic : !!f.headItalic,
+    headSpacing: clamp(s.headSpacing, 0, 40, f.headSpacing ?? 22),
+    corners: s.corners in CORNERS ? s.corners : (f.corners in CORNERS ? f.corners : "none"),
+    texture: s.texture in TEXTURES ? s.texture : (f.texture in TEXTURES ? f.texture : "none"),
+    bg2: HEX.test(s.bg2) ? s.bg2 : (HEX.test(f.bg2) ? f.bg2 : mix(col("bg"), col("accent"), 0.18)),
+    shape: s.shape in SHAPES ? s.shape : (f.shape in SHAPES ? f.shape : "portrait"),
   };
+}
+
+/* ---------- colour helpers and the readability check ---------- */
+const rgbOf = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const hexOf = (c) => "#" + c.map((x) => Math.round(Math.min(255, Math.max(0, x))).toString(16).padStart(2, "0")).join("");
+export function mix(a, b, t) { const x = rgbOf(a), y = rgbOf(b); return hexOf(x.map((v, i) => v + (y[i] - v) * t)); }
+function lum(h) { return rgbOf(h).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
+export function contrast(a, b) { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); }
+/** Darkens or lightens fg (whichever works better) just enough to reach the target contrast against every background colour given. */
+export function fixColor(fg, grounds, need) {
+  grounds = [].concat(grounds);
+  const worst = (c) => Math.min(...grounds.map((g) => contrast(c, g)));
+  const toward = worst("#000000") >= worst("#ffffff") ? "#000000" : "#ffffff";
+  for (let t = 0; t <= 1.0001; t += 0.02) { const c = mix(fg, toward, t); if (worst(c) >= need) return c; }
+  return toward;
+}
+/** Text colours that would be hard to read on this card. Names are large text, so they need 3:1; other text 4.5:1. */
+export function readabilityIssues(style, photo) {
+  const s = cleanStyle(style), p = cleanPhoto(photo);
+  const grounds = s.texture === "gradient" ? [s.bg, s.bg2] : [s.bg];
+  const worst = (c) => Math.min(...grounds.map((g) => contrast(c, g)));
+  const issues = [];
+  for (const [key, label, need] of [["ink", "Text", 4.5], ["headColor", "Heading", 4.5], ["accent", "Names", 3]]) {
+    const r = worst(s[key]);
+    if (r < need) issues.push({ key, label, ratio: r, need, fix: fixColor(s[key], grounds, need) });
+  }
+  if (p?.mode === "background" && p.fade < 55) issues.push({ key: "fade", label: "Photo behind the text", photo: true });
+  return issues;
 }
 
 export function frameCSS(s, scale = 1) {
@@ -186,11 +245,32 @@ export function frameCSS(s, scale = 1) {
   return "";
 }
 
+function textureCSS(s) {
+  const ink = rgbOf(s.ink).join(","), acc = rgbOf(s.accent).join(",");
+  switch (s.texture) {
+    case "paper": return `radial-gradient(rgba(${ink},.06) 1px,transparent 1.3px) 0 0/4px 4px,radial-gradient(rgba(${ink},.04) 1px,transparent 1.3px) 2px 2px/5px 5px`;
+    case "linen": return `repeating-linear-gradient(0deg,rgba(${ink},.04) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(${ink},.04) 0 1px,transparent 1px 4px)`;
+    case "dots": return `radial-gradient(rgba(${acc},.14) 1.6px,transparent 2px) 0 0/16px 16px`;
+    case "gradient": return `linear-gradient(165deg,${s.bg} 0%,${s.bg2} 100%)`;
+    default: return "linear-gradient(transparent,transparent)";
+  }
+}
 function innerVars(s) {
   const nf = FONTS[s.nameFont], bf = FONTS[s.bodyFont];
-  return `--cbg:${s.bg};--ink:${s.ink};--acc:${s.accent};--lc:${s.frameA};--nf:${nf[1]};--nfs:${nf[2] || "normal"};--bf:${bf[1]};--ns:${s.nameSize}px;--bs:${s.bodySize}px;--al:${s.align};--ji:${s.align === "left" ? "start" : "center"}`;
+  return `--tex:${textureCSS(s)};--hc:${s.headColor};--htt:${s.headCase === "upper" ? "uppercase" : "none"};--hfs:${s.headItalic ? "italic" : "normal"};--hls:${(s.headSpacing / 100).toFixed(2)}em;--cbg:${s.bg};--ink:${s.ink};--acc:${s.accent};--lc:${s.frameA};--nf:${nf[1]};--nfs:${nf[2] || "normal"};--bf:${bf[1]};--ns:${s.nameSize}px;--bs:${s.bodySize}px;--al:${s.align};--ji:${s.align === "left" ? "start" : "center"}`;
 }
 const ORN = { dots: "• • •", diamond: "◆", flourish: "❦" };
+/* Corner ornaments, drawn for the top-left corner and mirrored for the others. Colour follows the names colour. */
+const CORNER_SVG = {
+  floral: `<path d="M5 44C5 22 22 5 44 5" fill="none" stroke="currentColor" stroke-width="1.4"/><g fill="currentColor"><g opacity=".55">${[0, 72, 144, 216, 288].map((a) => `<ellipse cx="15" cy="8.5" rx="3.2" ry="5.2" transform="rotate(${a} 15 15)"/>`).join("")}</g><circle cx="15" cy="15" r="3"/><circle cx="31" cy="7.6" r="2"/><circle cx="7.6" cy="31" r="2"/><ellipse cx="41" cy="5.6" rx="5" ry="1.8" transform="rotate(-12 41 5.6)"/><ellipse cx="5.6" cy="41" rx="1.8" ry="5" transform="rotate(-12 5.6 41)"/></g>`,
+  leaf: `<path d="M4 58C4 28 28 4 58 4" fill="none" stroke="currentColor" stroke-width="1.4"/><g fill="currentColor">${[[8, 40, -70], [13, 27, -55], [22, 16, -38], [34, 9, -22], [47, 5.5, -10]].map(([x, y, r]) => `<ellipse cx="${x}" cy="${y}" rx="2.4" ry="5.4" transform="rotate(${r} ${x} ${y})"/>`).join("")}${[[16, 36, -25], [27, 24, -45], [40, 15, -62]].map(([x, y, r]) => `<ellipse cx="${x}" cy="${y}" rx="1.8" ry="4" opacity=".6" transform="rotate(${r} ${x} ${y})"/>`).join("")}</g>`,
+  ketupat: `<g fill="none" stroke="currentColor" stroke-width="1.4"><path d="M17 3L31 17L17 31L3 17Z"/><path d="M10 10L24 24M24 10L10 24" opacity=".7"/><path d="M17 8L26 17L17 26L8 17Z" opacity=".7"/><path d="M31 17H58M17 31V58" opacity=".6"/></g><g fill="currentColor"><circle cx="44" cy="17" r="1.6"/><circle cx="17" cy="44" r="1.6"/></g>`,
+  mandala: `<g fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 15A12 12 0 0 0 15 3"/><path d="M3 25A22 22 0 0 0 25 3" opacity=".8"/><path d="M3 35A32 32 0 0 0 35 3" opacity=".6"/></g><g fill="currentColor">${[10, 25, 40, 55, 70, 80].map((a) => { const r = 42, x = 3 + r * Math.cos((a * Math.PI) / 180), y = 3 + r * Math.sin((a * Math.PI) / 180); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.7"/>`; }).join("")}</g>`,
+};
+function cornersHTML(name) {
+  if (!CORNER_SVG[name]) return "";
+  return `<div class="c-corners" aria-hidden="true">${["tl", "tr", "bl", "br"].map((c) => `<svg class="cn ${c}" viewBox="0 0 64 64">${CORNER_SVG[name]}</svg>`).join("")}</div>`;
+}
 
 /* ---------- photo ---------- */
 // h = frame height as % of its width
@@ -207,6 +287,7 @@ export function cleanPhoto(p) {
     zoom: clamp(p.zoom, 20, 300, 100), ar: clamp(p.ar, 0.2, 5, 1.5), fade: clamp(p.fade, 0, 90, 60),
   };
 }
+export const musicUrl = (path) => (path ? `${SUPABASE_URL}/storage/v1/object/public/photos/${path}` : "");
 export const photoUrl = (p) => (p?.path ? `${SUPABASE_URL}/storage/v1/object/public/photos/${p.path}` : "");
 export const imgCSS = (p) => `--z:${(p.zoom / 100).toFixed(3)};--dx:${p.dx};--dy:${p.dy};--ar:${p.ar.toFixed(4)}`;
 export function hexRgb(h) { const n = parseInt(h.slice(1), 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; }
@@ -227,17 +308,31 @@ export function watchPhotos(onAspect) {
 }
 
 /* ---------- details ---------- */
+/** Parts of the card that can be reordered or hidden. */
+export const SECTIONS = { headline: "Heading", names: "Names", message: "Message", divider: "Divider", when: "Date and time", where: "Venue and address", dress: "Dress code", extras: "Extra lines and schedule" };
+export const OPENINGS = { none: "Show the card straight away", envelope: "Envelope they tap to open", fade: "Gentle fade-in" };
 export const DEFAULT_DETAILS = {
+  altScript: "", altHeadline: "", altNames: "", altMessage: "", opening: "none", music: "",
   occasion: "wedding", name1: "", name2: "", headline: "Together with their families",
   message: "We would be honoured to have you with us as we begin our life together.",
   date: "", start: "11:00", end: "16:00", rsvpBy: "", venue: "", address: "", dress: "",
 };
-const LIMITS = { occasion: 20, name1: 60, name2: 60, headline: 80, message: 400, date: 10, start: 5, end: 5, rsvpBy: 10, venue: 120, address: 200, dress: 80 };
+const LIMITS = { altScript: 8, altHeadline: 100, altNames: 100, altMessage: 400, opening: 10, music: 120, occasion: 20, name1: 60, name2: 60, headline: 80, message: 400, date: 10, start: 5, end: 5, rsvpBy: 10, venue: 120, address: 200, dress: 80 };
 export function cleanDetails(d) {
   d = d && typeof d === "object" ? d : {};
   const out = {};
   for (const k of Object.keys(DEFAULT_DETAILS)) out[k] = typeof d[k] === "string" ? d[k].slice(0, LIMITS[k]) : DEFAULT_DETAILS[k];
   if (!(out.occasion in OCCASIONS)) out.occasion = "wedding";   // invitations made before occasions existed are weddings
+  if (!(out.altScript in ALT_SCRIPTS)) out.altScript = "";
+  if (!(out.opening in OPENINGS)) out.opening = "none";
+  if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[A-Za-z0-9_-]+\.(mp3|m4a|aac)$/.test(out.music)) out.music = "";
+  out.extras = (Array.isArray(d.extras) ? d.extras : []).slice(0, 8).map((x) => ({
+    time: String(x?.time ?? "").slice(0, 24), text: String(x?.text ?? "").slice(0, 120),
+  }));
+  const keys = Object.keys(SECTIONS);
+  out.order = [...new Set((Array.isArray(d.order) ? d.order : []).filter((k) => keys.includes(k)))];
+  for (const k of keys) if (!out.order.includes(k)) out.order.push(k);   // sections added later go at the end
+  out.hidden = [...new Set((Array.isArray(d.hidden) ? d.hidden : []).filter((k) => keys.includes(k)))];
   return out;
 }
 
@@ -268,27 +363,32 @@ export function cardHTML(inv, guestName) {
       photo = `<div class="c-photo ${p.shape} at-${p.mode}" style="${side ? "" : `width:${p.size}%;`}aspect-ratio:100/${p.h}">${img}</div>`;
     }
   }
+  const alt = ALT_SCRIPTS[d.altScript];
+  if (alt.key) ensureFonts([alt.key]);
+  const altLine = (text, cls) => (d.altScript && text ? `<p class="c-alt ${cls}"${alt.rtl ? ' dir="rtl"' : ""}${alt.font ? ` style="font-family:${alt.font}"` : ""}>${esc(text)}</p>` : "");
   const names = occ.two
     ? `<h2 class="c-names"><span>${esc(d.name1 || occ.ph1)}</span><span class="amp">&amp;</span><span>${esc(d.name2 || occ.ph2)}</span></h2>`
     : `<h2 class="c-names"><span>${esc(d.name1 || occ.ph1)}</span></h2>${d.name2 ? `<p class="c-sub">${esc(d.name2)}</p>` : ""}`;
-  const content = `
-    ${d.headline ? `<p class="c-head">${esc(d.headline)}</p>` : ""}
-    ${names}
-    ${d.message ? `<p class="c-msg">${esc(d.message)}</p>` : ""}
-    ${orn}
-    <p class="c-date">${esc(fmtDate(d.date) || "Pick a date")}</p>
-    <p class="c-time">${esc(timeRange(d))}</p>
-    ${d.venue ? `<p class="c-venue">${esc(d.venue)}</p>` : ""}
-    ${d.address ? `<p class="c-addr">${esc(d.address)}</p>` : ""}
-    ${d.dress ? `<p class="c-dress">Dress code: ${esc(d.dress)}</p>` : ""}
-    ${guestName ? `<p class="c-for">Specially for ${esc(guestName)}</p>` : ""}`;
+  const extras = d.extras.filter((x) => x.text.trim() || x.time.trim());
+  const parts = {
+    headline: (d.headline ? `<p class="c-head">${esc(d.headline)}</p>` : "") + altLine(d.altHeadline, "alt-head"),
+    names: names + altLine(d.altNames, "alt-names"),
+    message: (d.message ? `<p class="c-msg">${esc(d.message)}</p>` : "") + altLine(d.altMessage, "alt-msg"),
+    divider: orn,
+    when: `<p class="c-date">${esc(fmtDate(d.date) || "Pick a date")}</p><p class="c-time">${esc(timeRange(d))}</p>`,
+    where: (d.venue ? `<p class="c-venue">${esc(d.venue)}</p>` : "") + (d.address ? `<p class="c-addr">${esc(d.address)}</p>` : ""),
+    dress: d.dress ? `<p class="c-dress">Dress code: ${esc(d.dress)}</p>` : "",
+    extras: extras.length ? `<div class="c-extras">${extras.map((x) => `<p class="c-x">${x.time.trim() ? `<span class="c-xt">${esc(x.time)}</span>` : ""}<span>${esc(x.text)}</span></p>`).join("")}</div>` : "",
+  };
+  const content = d.order.filter((k) => !d.hidden.includes(k)).map((k) => parts[k]).join("\n")
+    + (guestName ? `<p class="c-for">Specially for ${esc(guestName)}</p>` : "");
   let body;
   if (photo && (p.mode === "left" || p.mode === "right")) {
     body = `<div class="c-side ${p.mode}" style="--pw:${Math.round(p.size * 0.55)}%">${photo}<div class="c-main">${content}</div></div>`;
   } else if (photo && p.mode === "bottom") body = content + photo;
   else body = photo + content;
-  return `<div class="card" style="${frameCSS(s)};--r:${s.radius}px"><div class="card-inner${s.line ? " lined" : ""}${bg ? " has-bg" : ""}" style="${innerVars(s)}${veil}">
-    ${bg}${body}
+  return `<div class="card" style="${frameCSS(s)};--r:${s.radius}px"><div class="card-inner${s.line ? " lined" : ""}${bg ? " has-bg" : ""} shape-${s.shape}" style="${innerVars(s)}${veil}">
+    ${bg}${cornersHTML(s.corners)}${body}
   </div></div>`;
 }
 

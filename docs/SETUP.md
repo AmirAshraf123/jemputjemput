@@ -28,6 +28,7 @@ All file paths below are relative to the top of the project folder.
 | `supabase/schema.sql` | Sets up the database, security rules and photo storage (for a new setup) |
 | `supabase/002_group_links.sql` | One-time update for setups made before group links existed |
 | `supabase/003_guest_groups.sql` | One-time update for setups made before guest groups (birthdays and other occasions) existed |
+| `supabase/004_music.sql` | One-time update that lets invitations have background music |
 | `.github/workflows/keep-awake.yml` | Optional: keeps a free Supabase project from pausing (step 6C) |
 
 ## Setup (about 15 minutes)
@@ -42,7 +43,7 @@ All file paths below are relative to the top of the project folder.
 
 This creates the tables, makes sure each person can only see their own invitations, sets up the photo storage, and adds the two functions guests use to view their invitation and reply. Guests never need an account.
 
-> **Set up Jemput before these updates?** Run each update you haven't run yet, the same way, once and in order: `supabase/002_group_links.sql` (group links), then `supabase/003_guest_groups.sql` (guest groups for birthdays and other occasions). They don't touch your existing invitations or guests, and until you run them everything else keeps working.
+> **Set up Jemput before these updates?** Run each update you haven't run yet, the same way, once and in order: `supabase/002_group_links.sql` (group links), then `supabase/003_guest_groups.sql` (guest groups for birthdays and other occasions), then `supabase/004_music.sql` (background music). They don't touch your existing invitations or guests, and until you run them everything else keeps working.
 
 ### 3. Connect the website to your project
 1. In Supabase, go to **Project Settings → API**.

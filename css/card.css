@@ -17,7 +17,7 @@
   display: grid;
   gap: 10px;
   justify-items: var(--ji, center);
-  background: var(--cbg);
+  background: var(--tex, linear-gradient(transparent, transparent)), var(--cbg);
   color: var(--ink);
   font-family: var(--bf);
   font-size: var(--bs, 16px);
@@ -39,8 +39,10 @@
 
 .c-head {
   font-size: .8em;
-  letter-spacing: .22em;
-  text-transform: uppercase
+  letter-spacing: var(--hls, .22em);
+  text-transform: var(--htt, uppercase);
+  font-style: var(--hfs, normal);
+  color: var(--hc, inherit)
 }
 
 .c-names {
@@ -223,4 +225,114 @@
   font-size: 1.2em;
   letter-spacing: .03em;
   color: var(--acc)
+}
+
+/* card shapes: square and tall are minimums, so long text makes the card taller rather than being cut off */
+.card {
+  container-type: inline-size
+}
+
+.card-inner.shape-square {
+  min-height: calc(100cqw - 28px);
+  align-content: center
+}
+
+.card-inner.shape-story {
+  min-height: calc((100cqw - 28px) * 16 / 9);
+  align-content: center
+}
+
+/* second-language lines */
+.card-inner .c-alt {
+  margin-top: -4px;
+  opacity: .92
+}
+
+.card-inner .c-alt.alt-head {
+  font-size: .85em;
+  letter-spacing: .04em;
+  color: var(--hc, inherit)
+}
+
+.card-inner .c-alt.alt-names {
+  font-size: 1.25em;
+  color: var(--acc)
+}
+
+.card-inner .c-alt.alt-msg {
+  max-width: 30ch;
+  font-size: 1em;
+  line-height: 1.5
+}
+
+/* extra lines and schedule */
+.c-extras {
+  display: grid;
+  gap: 4px;
+  justify-items: var(--ji, center);
+  margin-top: 6px;
+  max-width: 34ch
+}
+
+.card-inner .c-x {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: var(--ji, center);
+  line-height: 1.45
+}
+
+.c-xt {
+  font-weight: 600;
+  color: var(--acc);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap
+}
+
+/* corner ornaments: drawn behind the text, in the names colour */
+.c-corners {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--acc);
+  z-index: 0
+}
+
+.c-corners .cn {
+  position: absolute;
+  width: 15%;
+  max-width: 64px;
+  min-width: 38px;
+  height: auto;
+  aspect-ratio: 1;
+  opacity: .85
+}
+
+.c-corners .tl {
+  top: 14px;
+  left: 14px
+}
+
+.c-corners .tr {
+  top: 14px;
+  right: 14px;
+  transform: scaleX(-1)
+}
+
+.c-corners .bl {
+  bottom: 14px;
+  left: 14px;
+  transform: scaleY(-1)
+}
+
+.c-corners .br {
+  bottom: 14px;
+  right: 14px;
+  transform: scale(-1, -1)
+}
+
+.card-inner> :not(.c-bg):not(.c-veil):not(.c-corners) {
+  position: relative;
+  z-index: 1
 }

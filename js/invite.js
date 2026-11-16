@@ -3,7 +3,7 @@
 //   Group link:    invite.html#g/<group code>   (anyone in a group chat)
 // Add "/preview" to either to see it without being able to reply.
 import { sb, $, toast } from "./sb.js";
-import { cardHTML, cleanDetails, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord } from "./card.js";
+import { cardHTML, cleanDetails, cleanStyle, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord, initialsFor, musicUrl, mix } from "./card.js";
 
 const params = new URLSearchParams(location.search);
 const parts = location.hash.slice(1).split("/");
@@ -12,7 +12,7 @@ const groupToken = isGroup ? (parts[1] || "").replace(/[^a-f0-9]/gi, "") : "";
 const preview = (isGroup ? parts[2] : parts[1]) === "preview" || params.has("preview");
 let token = isGroup ? "" : (parts[0] || params.get("g") || "").replace(/[^a-f0-9]/gi, "");
 
-let inv = null, guest = null, draft = null, maxSeats = 1;
+let inv = null, guest = null, draft = null, maxSeats = 1, openingDone = false, music = null;
 let mode = "personal";   // "personal": replying as a known guest; "group": filling in the group form
 
 watchPhotos();
@@ -87,6 +87,7 @@ function render() {
     <div class="links">${map ? `<a class="btn ghost sm" href="${map}" target="_blank" rel="noopener">Open in Maps</a>` : ""}
     ${d.date ? `<a class="btn ghost sm" href="${calLink(d)}" target="_blank" rel="noopener">Add to Google Calendar</a>` : ""}</div>`;
   renderRsvp();
+  if (!openingDone) { openingDone = true; setupMusic(); setupOpening(); }
 }
 
 function renderRsvp() {
@@ -180,4 +181,60 @@ function replyForSomeoneElse() {
     inv = data.invitation; maxSeats = Math.max(1, data.max_seats || 1); render();
     $("rsvp").scrollIntoView({ behavior: "smooth", block: "start" });
   });
+}
+
+/* ---------- opening: an envelope the guest taps, or a gentle fade-in ---------- */
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function setupOpening() {
+  const d = cleanDetails(inv.details);
+  if (d.opening === "fade" && !reduceMotion) $("card").classList.add("reveal");
+  if (d.opening !== "envelope") return;
+  const st = cleanStyle(inv.style);
+  const ov = document.createElement("div");
+  ov.className = "env-overlay";
+  ov.style.cssText = `--env-bg:${st.bg};--env-inner:${mix(st.bg, st.ink, 0.1)};--env-flap:${mix(st.bg, st.accent, 0.14)};--env-line:${st.frameA};--env-seal:${st.accent};--env-seal-ink:${st.bg}`;
+  ov.innerHTML = `<div class="env-wrap">
+      <p class="env-kicker">You're invited</p>
+      ${guest?.name ? `<p class="env-for">For ${esc(guest.name)}</p>` : ""}
+      <button type="button" class="env" aria-label="Open your invitation">
+        <span class="env-back"></span><span class="env-paper"></span><span class="env-front"></span>
+        <span class="env-flap"></span><span class="env-seal">${esc(initialsFor(d))}</span>
+      </button>
+      <p class="env-hint">Tap the envelope to open</p>
+    </div>`;
+  document.body.append(ov); document.body.classList.add("env-lock");
+  // While the envelope is showing, the invitation behind it can't be reached, so Tab goes straight to the envelope.
+  const behind = [document.querySelector("main"), document.querySelector(".music-btn")].filter(Boolean);
+  behind.forEach((el) => (el.inert = true));
+  const btn = ov.querySelector(".env");
+  btn.addEventListener("click", () => {
+    music?.play();   // a tap is what allows sound to start on phones
+    if (reduceMotion) return done();
+    ov.classList.add("opening");
+    setTimeout(() => ov.classList.add("leaving"), 750);
+    setTimeout(done, 1300);
+  }, { once: true });
+  function done() {
+    ov.remove(); document.body.classList.remove("env-lock");
+    document.querySelectorAll("[inert]").forEach((el) => (el.inert = false));
+    $("card").classList.add("reveal"); $("card").focus({ preventScroll: true });
+  }
+}
+
+/* ---------- background music: a play/pause button; it never starts by itself ---------- */
+function setupMusic() {
+  const d = cleanDetails(inv.details);
+  if (!d.music) return;
+  const audio = new Audio(musicUrl(d.music));
+  audio.loop = true; audio.preload = "none";
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.className = "music-btn"; btn.setAttribute("aria-pressed", "false");
+  const ICON = { play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>', pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>' };
+  const show = (on) => { btn.innerHTML = (on ? ICON.pause : ICON.play) + `<span>${on ? "Pause music" : "Play music"}</span>`; btn.setAttribute("aria-pressed", String(on)); };
+  show(false);
+  audio.addEventListener("play", () => show(true)); audio.addEventListener("pause", () => show(false));
+  audio.addEventListener("error", () => { btn.remove(); });
+  btn.addEventListener("click", () => (audio.paused ? audio.play().catch(() => toast("Couldn't play the music on this device.")) : audio.pause()));
+  document.body.append(btn);
+  music = { play: () => audio.play().catch(() => { }) };
 }
