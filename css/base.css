@@ -1910,9 +1910,128 @@ input[type=range]:focus-visible::-moz-range-thumb {
   text-decoration: line-through
 }
 
-.alt-fields {
+.tr-box {
   display: grid;
   gap: 12px
+}
+
+.tr-list {
+  display: grid;
+  gap: 10px
+}
+
+.tr-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg)
+}
+
+.tr-row.needs {
+  border-color: var(--wait);
+  background: var(--wait-soft)
+}
+
+.tr-row label {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.4
+}
+
+.tr-label {
+  font-weight: 600;
+  color: var(--fg)
+}
+
+.tr-src::before {
+  content: "· "
+}
+
+.tr-more summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  border-radius: 8px;
+  list-style: none
+}
+
+.tr-more summary::-webkit-details-marker {
+  display: none
+}
+
+.tr-more summary::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform .15s
+}
+
+.tr-more[open] summary::before {
+  transform: rotate(45deg)
+}
+
+.tr-more[open]> :not(summary) {
+  margin-top: 10px
+}
+
+.tr-row input,
+.tr-row textarea {
+  width: 100%
+}
+
+.tr-row :lang(zh) {
+  font-family: "Noto Serif SC", var(--ui)
+}
+
+.tr-row :lang(ta) {
+  font-family: "Noto Serif Tamil", var(--ui)
+}
+
+.tr-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap
+}
+
+.tr-status {
+  font-size: 13px;
+  color: var(--muted)
+}
+
+.tr-row.needs .tr-status {
+  color: var(--wait)
+}
+
+.pv-lang {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 10px
+}
+
+.pv-lang:empty {
+  display: none
+}
+
+@media (max-width:880px) {
+  .pv-lang {
+    margin: 4px 0 6px
+  }
+
+  .pv-lang .lang-switch button {
+    min-height: 36px;
+    padding: 4px 14px
+  }
 }
 
 .music-set {

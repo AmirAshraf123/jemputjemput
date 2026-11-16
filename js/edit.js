@@ -2,8 +2,8 @@
 import { sb, requireUser, signOut, $, toast, isConfigured, showSetupNotice } from "./sb.js";
 import {
   esc, clamp, FONTS, PRESETS, presetById, cleanStyle, cleanPhoto, cleanDetails, imgCSS, SHAPE_DEF,
-  cardHTML, thumbHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor, ensureFonts,
-  CORNERS, TEXTURES, SHAPES, ALT_SCRIPTS, SECTIONS, OPENINGS, readabilityIssues, musicUrl, eventTitle, fontCSSUrl, cardFontKeys,
+  cardHTML, thumbHTML, LANGS, TR_FIELDS, translated, langSwitchHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor, ensureFonts,
+  CORNERS, TEXTURES, SHAPES, SECTIONS, OPENINGS, readabilityIssues, musicUrl, eventTitle, fontCSSUrl, cardFontKeys,
 } from "./card.js";
 
 if (!isConfigured) showSetupNotice();
@@ -125,9 +125,9 @@ function fillForm() {
 const options = (obj) => Object.entries(obj).map(([k, v]) => `<option value="${k}">${esc(v.label || v)}</option>`).join("");
 function setupCustomise() {
   $("sCorners").innerHTML = options(CORNERS); $("sTexture").innerHTML = options(TEXTURES); $("sShape").innerHTML = options(SHAPES);
-  $("altScript").innerHTML = options(ALT_SCRIPTS); $("opening").innerHTML = options(OPENINGS);
+  $("lang1").innerHTML = options(LANGS); $("opening").innerHTML = options(OPENINGS);
 }
-function fillCustomise() { renderExtras(); renderSectionList(); fillAlt(); fillMusic(); }
+function fillCustomise() { renderExtras(); renderSectionList(); fillLangs(); fillMusic(); }
 
 function renderExtras() {
   const list = inv.details.extras;
@@ -250,15 +250,120 @@ $("secList").addEventListener("keydown", (e) => {
 });
 function announce(msg) { $("secLive").textContent = msg; }
 
-function fillAlt() {
-  const a = ALT_SCRIPTS[inv.details.altScript];
-  $("altFields").hidden = !inv.details.altScript;
-  for (const id of ["altHeadline", "altNames", "altMessage"]) {
-    $(id).dir = a.rtl ? "rtl" : "auto";
-    $(id).style.fontFamily = a.font || "";
-  }
-  if (a.key) ensureFonts([a.key]);
+/* ---------- second language: guests switch between two languages on the card ---------- */
+let pvLang = "";   // which language the preview shows ("" = the main one)
+let trMoreOpen = false;   // whether "Names and places" is unfolded
+const curLang = () => (pvLang && pvLang === inv.details.lang2 ? pvLang : inv.details.lang1);
+function fillLangs() {
+  const d = inv.details;
+  $("lang1").value = d.lang1;
+  $("lang2").innerHTML = `<option value="">None</option>` + Object.entries(LANGS).filter(([k]) => k !== d.lang1).map(([k, v]) => `<option value="${k}">${esc(v.name === v.label ? v.label : `${v.name} (${v.label})`)}</option>`).join("");
+  $("lang2").value = d.lang2;
+  $("trBox").hidden = !d.lang2;
+  if (pvLang && pvLang !== d.lang2) pvLang = "";
+  renderLangSwitch(); renderTr();
 }
+function renderLangSwitch() { $("pvLang").innerHTML = langSwitchHTML(inv.details, curLang()); }
+$("pvLang").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-lang]"); if (!b) return;
+  pvLang = b.dataset.lang === inv.details.lang1 ? "" : b.dataset.lang;
+  renderLangSwitch(); renderDesign(); $("pvLang").querySelector(`[data-lang="${b.dataset.lang}"]`)?.focus();
+});
+// The parts of this card that can be translated, with their current wording.
+function trItems() {
+  const d = inv.details, occ = occasionOf(d), items = [];
+  for (const f of TR_FIELDS) {
+    const src = d[f.k]; if (!src?.trim()) continue;
+    let { label, auto, optional } = f;
+    if (f.k === "name1") label = occ.two ? "First name" : occ.l1;
+    if (f.k === "name2") { if (occ.two) label = "Second name"; else { label = occ.l2.replace(/ \(optional\)$/, ""); auto = true; optional = false; } }
+    items.push({ id: f.k, label, auto, optional, area: f.area, src, saved: d.tr[f.k] });
+  }
+  d.extras.forEach((x, i) => { if (x.text.trim()) items.push({ id: "x" + i, label: `Extra line ${i + 1}`, auto: true, src: x.text, saved: x.tr }); });
+  return items;
+}
+const HOW = { "built-in": "Built-in translation", auto: "Machine translation, please check it", you: "Your wording", stale: "You changed the original since this was translated", none: "" };
+function renderTr() {
+  const d = inv.details; if (!d.lang2) { $("trList").innerHTML = ""; return; }
+  if ($("trList").contains(document.activeElement) && document.activeElement.dataset.tr) return;   // don't redraw under the cursor
+  const L2 = LANGS[d.lang2], items = trItems();
+  $("trIntro").textContent = `Standard wording, dates and labels are already in ${L2.name}. Check each line below and change anything you like.`;
+  const row = (it) => {
+    const r = translated(it.src, it.saved, d), val = r.how === "none" ? "" : r.text;
+    const ph = it.optional ? `Leave empty to keep "${it.src}"` : `${L2.name} for this line`;
+    const field = it.area
+      ? `<textarea id="tr-${it.id}" data-tr="${it.id}" lang="${d.lang2}" maxlength="400" rows="3" placeholder="${esc(ph)}">${esc(val)}</textarea>`
+      : `<input id="tr-${it.id}" data-tr="${it.id}" lang="${d.lang2}" maxlength="${it.id[0] === "x" ? 160 : 400}" placeholder="${esc(ph)}" value="${esc(val)}">`;
+    const status = r.how === "none" ? (it.optional ? "" : "Not translated yet, so guests will see the original") : HOW[r.how];
+    const btn = it.auto && r.how !== "built-in" ? `<button type="button" class="btn sm ghost" data-trgo="${it.id}" aria-describedby="tr-${it.id}">${r.how === "stale" ? "Translate again" : "Translate"}</button>` : "";
+    return `<div class="tr-row${r.how === "stale" || (r.how === "none" && !it.optional) ? " needs" : ""}">
+      <label for="tr-${it.id}"><span class="tr-label">${esc(it.label)}</span> <span class="tr-src">${esc(it.src)}</span></label>
+      ${field}
+      ${status || btn ? `<div class="tr-meta"><span class="tr-status" id="trs-${it.id}">${esc(status)}</span>${btn}</div>` : ""}
+    </div>`;
+  };
+  const main = items.filter((it) => !it.optional), extra = items.filter((it) => it.optional);
+  const moreOpen = trMoreOpen || extra.some((it) => it.saved?.t);
+  $("trList").innerHTML = (main.map(row).join("") || `<p class="hint">Fill in the card first, then its lines appear here.</p>`)
+    + (extra.length ? `<details class="tr-more" id="trMore"${moreOpen ? " open" : ""}><summary>Names and places in ${esc(L2.name)} (optional)</summary>
+        <p class="hint">Names and places usually stay as they are. Fill these in only if you want them written differently, for example in Chinese characters.</p>${extra.map(row).join("")}</details>` : "");
+}
+// Save one translation (or clear it when empty, so the built-in or original shows again).
+function setTr(id, text, by) {
+  const it = trItems().find((x) => x.id === id); if (!it) return;
+  const val = text.trim() ? { t: text, src: it.src, by } : undefined;
+  if (id[0] === "x") {
+    const extras = inv.details.extras.map((x, i) => (i === +id.slice(1) ? { ...x, tr: val } : x));
+    inv.details = cleanDetails({ ...inv.details, extras });
+  } else {
+    const tr = { ...inv.details.tr }; if (val) tr[id] = val; else delete tr[id];
+    inv.details = cleanDetails({ ...inv.details, tr });
+  }
+  if (!pvLang) { pvLang = inv.details.lang2; renderLangSwitch(); }   // show the translated card while translating
+  queueSave();
+}
+$("trList").addEventListener("toggle", (e) => { if (e.target.id === "trMore") trMoreOpen = e.target.open; }, true);
+$("trList").addEventListener("input", (e) => { const id = e.target.dataset.tr; if (id) setTr(id, e.target.value, "you"); });
+$("trList").addEventListener("focusout", () => setTimeout(() => { if (!$("trList").contains(document.activeElement)) renderTr(); }, 0));
+// Machine translation through MyMemory (free, no account). Text is sent to their server only when the host presses Translate.
+async function machineTranslate(text) {
+  const d = inv.details;
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${LANGS[d.lang1].mm}|${LANGS[d.lang2].mm}`;
+  const res = await fetch(url);
+  const j = await res.json().catch(() => ({}));
+  const out = j?.responseData?.translatedText || "";
+  if (+j?.responseStatus === 429 || /MYMEMORY WARNING|USED ALL AVAILABLE/i.test(out)) throw new Error("quota");
+  if (!res.ok || +j?.responseStatus !== 200 || !out || /^(QUERY LENGTH|INVALID)/i.test(out)) throw new Error("failed");
+  const tx = document.createElement("textarea"); tx.innerHTML = out; return tx.value;   // it returns some characters as HTML codes
+}
+const trError = (err) => toast(err.message === "quota"
+  ? "The free translator has reached its limit for today. Try again tomorrow, or type the translation yourself."
+  : "Couldn't reach the translator. Check your connection and try again, or type the translation yourself.");
+async function translateOne(id) {
+  const it = trItems().find((x) => x.id === id); if (!it) return false;
+  $("trs-" + id) && ($("trs-" + id).textContent = "Translating…");
+  const t = await machineTranslate(it.src);
+  setTr(id, t, "auto");
+  return true;
+}
+$("trList").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-trgo]"); if (!b) return;
+  b.disabled = true;
+  try { await translateOne(b.dataset.trgo); renderTr(); $(`tr-${b.dataset.trgo}`)?.focus(); }
+  catch (err) { trError(err); renderTr(); }
+});
+$("trAll").addEventListener("click", async (e) => {
+  const btn = e.currentTarget, d = inv.details;
+  // only lines that aren't already translated for their current wording and have no built-in version
+  const todo = trItems().filter((it) => it.auto && ["none", "stale"].includes(translated(it.src, it.saved, d).how));
+  if (!todo.length) { toast(`Everything is already in ${LANGS[d.lang2].name}.`); return; }
+  btn.disabled = true; let done = 0;
+  try {
+    for (const it of todo) { btn.textContent = `Translating ${done + 1} of ${todo.length}…`; await translateOne(it.id); done++; }
+    toast(`Translated ${done} line${done === 1 ? "" : "s"}. Have a read to check they sound right.`);
+  } catch (err) { trError(err); }
+  finally { btn.disabled = false; btn.textContent = "Translate everything"; renderTr(); }
+});
 
 /* Readability check: flags text colours that are hard to read on the card, with one-tap fixes. */
 function renderReadability() {
@@ -370,7 +475,7 @@ $("occasion").addEventListener("change", (e) => {
   fillForm(); renderGuests(); queueSave();
   toast(`Set up for ${next.label.toLowerCase()}`);
 });
-function renderDesign() { $("designCard").innerHTML = cardHTML(inv); fitPreview(); renderReadability(); }
+function renderDesign() { $("designCard").innerHTML = cardHTML(inv, null, curLang()); fitPreview(); renderReadability(); renderTr(); }
 
 /* ---------- phone preview: pinned, scaled to fit, can be hidden or opened full size ---------- */
 const phone = matchMedia("(max-width: 880px)");
@@ -396,7 +501,7 @@ try { if (localStorage.getItem("jemput.previewHidden")) setCollapsed(true); } ca
 let pvReturnFocus = null;
 function openFull() {
   pvReturnFocus = document.activeElement;
-  $("pvFullCard").innerHTML = cardHTML(inv);
+  $("pvFullCard").innerHTML = cardHTML(inv, null, curLang());
   $("pvFullView").hidden = false; document.body.style.overflow = "hidden";
   $("pvClose").focus();
 }
@@ -437,7 +542,7 @@ async function saveImage(btn) {
   host.className = "export-host";
   try {
     const { toBlob } = await import(IMAGE_LIB);
-    host.innerHTML = cardHTML(inv);
+    host.innerHTML = cardHTML(inv, null, curLang());
     document.body.append(host);
     await document.fonts.ready;
     await Promise.all([...host.querySelectorAll("img")].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
@@ -486,7 +591,7 @@ $("designForm").addEventListener("input", (e) => {
   if (t.dataset.k) {
     inv.details = cleanDetails({ ...inv.details, [t.dataset.k]: t.value });
     if (t.dataset.k === "name1" || t.dataset.k === "name2") renderTemplates();
-    if (t.dataset.k === "altScript") fillAlt();
+    if (t.dataset.k === "lang1" || t.dataset.k === "lang2") fillLangs();
     queueSave(); return;
   }
   if (t.dataset.s) {

@@ -36,14 +36,74 @@ const GFAMILY = {
   ebgaramond: "EB+Garamond:ital@0;1", lora: "Lora:ital@0;1", josefin: "Josefin+Sans:wght@300;400;600", figtree: "",
   notoSC: "Noto+Serif+SC:wght@400;600", notoTamil: "Noto+Serif+Tamil:wght@400;600",
 };
-/** Second language shown under the heading, names and message. */
-export const ALT_SCRIPTS = {
-  "": { label: "None" },
-  same: { label: "Malay or English (same fonts)" },
-  zh: { label: "Chinese", font: "'Noto Serif SC',serif", key: "notoSC" },
-  ta: { label: "Tamil", font: "'Noto Serif Tamil',serif", key: "notoTamil" },
-  jawi: { label: "Jawi or Arabic", font: "'Amiri',serif", key: "amiri", rtl: true },
+/* ---------- languages ----------
+   A card can have a second language. Guests switch between the two with a button; only one shows at a time. */
+export const LANGS = {
+  en: { label: "English", name: "English", locale: "en-SG", mm: "en" },
+  ms: { label: "Bahasa Melayu", name: "Malay", locale: "ms-MY", mm: "ms" },
+  zh: { label: "中文", name: "Chinese", locale: "zh-SG", mm: "zh-CN", font: "'Noto Serif SC'", key: "notoSC" },
+  ta: { label: "தமிழ்", name: "Tamil", locale: "ta-SG", mm: "ta", font: "'Noto Serif Tamil'", key: "notoTamil" },
 };
+/* Ready-made translations of the standard wording, so most cards need no typing or online translator.
+   Each row is the same phrase in every language; a match in any language gives the others. */
+const PHRASES = [
+  // wedding
+  { en: "Together with their families", ms: "Bersama keluarga mereka", zh: "携同双方家人", ta: "குடும்பத்தினருடன் இணைந்து" },
+  { en: "We would be honoured to have you with us as we begin our life together.", ms: "Kehadiran anda amat kami hargai sempena permulaan hidup baharu kami bersama.", zh: "诚挚邀请您见证我们携手开启人生新篇章。", ta: "எங்கள் புதிய வாழ்க்கையைத் தொடங்கும் இந்த இனிய தருணத்தில் உங்கள் வருகையை அன்புடன் எதிர்பார்க்கிறோம்." },
+  // engagement
+  { en: "Please join us to celebrate the engagement of", ms: "Dengan sukacitanya kami menjemput anda ke majlis pertunangan", zh: "诚邀您共同庆祝订婚之喜", ta: "நிச்சயதார்த்த விழாவைக் கொண்டாட உங்களை அன்புடன் அழைக்கிறோம்" },
+  { en: "Come and share our joy as we take the next step together.", ms: "Marilah berkongsi kegembiraan kami ketika kami melangkah ke fasa seterusnya bersama.", zh: "欢迎与我们分享这份喜悦，一同见证我们迈出新的一步。", ta: "நாங்கள் இணைந்து அடுத்த அடியை எடுத்து வைக்கும் இந்த மகிழ்ச்சியில் பங்கேற்க வாருங்கள்." },
+  // birthday
+  { en: "You're invited to celebrate", ms: "Anda dijemput untuk meraikan", zh: "诚邀您一同庆祝", ta: "கொண்டாட்டத்திற்கு உங்களை அன்புடன் அழைக்கிறோம்" },
+  { en: "Join us for cake, good food and even better company!", ms: "Mari bersama kami menikmati kek, juadah yang lazat dan suasana yang meriah!", zh: "一起来享用蛋糕和美食，共度欢乐时光！", ta: "கேக், சுவையான உணவு, இனிய நட்புடன் கொண்டாட எங்களுடன் இணையுங்கள்!" },
+  // baby
+  { en: "Please join us to welcome", ms: "Dengan sukacitanya kami menjemput anda meraikan kelahiran", zh: "诚邀您一同迎接", ta: "வரவேற்க எங்களுடன் இணையுங்கள்" },
+  { en: "We would love you to celebrate the arrival of our little one with us.", ms: "Kami amat berbesar hati jika anda dapat bersama meraikan kehadiran cahaya mata kami.", zh: "诚邀您与我们一同庆祝小宝贝的到来。", ta: "எங்கள் செல்லக் குழந்தையின் வருகையை எங்களுடன் கொண்டாட அன்புடன் அழைக்கிறோம்." },
+  // anniversary
+  { en: "Celebrating 25 years together", ms: "Meraikan 25 tahun bersama", zh: "庆祝相伴25周年", ta: "இணைந்த 25 ஆண்டுகளைக் கொண்டாடுகிறோம்" },
+  { en: "Please join us as we mark this milestone with family and friends.", ms: "Sila bersama kami meraikan detik bermakna ini bersama keluarga dan sahabat handai.", zh: "诚邀您与亲朋好友一同见证这个重要的时刻。", ta: "குடும்பத்தினர், நண்பர்களுடன் இந்த மைல்கல்லைக் கொண்டாட எங்களுடன் இணையுங்கள்." },
+  // open house
+  { en: "You're warmly invited to our", ms: "Anda dijemput dengan penuh mesra ke", zh: "诚挚邀请您光临我们的", ta: "எங்கள் நிகழ்விற்கு உங்களை அன்புடன் அழைக்கிறோம்" },
+  { en: "Drop by for good food and good company. Bring the whole family!", ms: "Jemputlah datang menikmati juadah dan beramah mesra. Bawalah seisi keluarga!", zh: "欢迎前来品尝美食、欢聚一堂，欢迎携全家同来！", ta: "சுவையான உணவுக்கும் இனிய சந்திப்புக்கும் வாருங்கள். முழு குடும்பத்துடன் வாருங்கள்!" },
+  // graduation
+  { en: "Please join us to celebrate", ms: "Sila bersama kami meraikan", zh: "诚邀您共同庆祝", ta: "கொண்டாட எங்களுடன் இணையுங்கள்" },
+  { en: "Help us celebrate years of hard work and a bright future ahead.", ms: "Mari bersama meraikan hasil usaha bertahun-tahun dan masa depan yang cerah.", zh: "一同庆祝多年的努力付出与光明的未来。", ta: "பல ஆண்டுகால உழைப்பையும் ஒளிமயமான எதிர்காலத்தையும் கொண்டாட எங்களுடன் இணையுங்கள்." },
+  // party
+  { en: "You're invited to", ms: "Anda dijemput ke", zh: "诚邀您参加", ta: "உங்களை அன்புடன் அழைக்கிறோம்" },
+  { en: "We'd love you to join us.", ms: "Kami amat berbesar hati jika anda dapat bersama kami.", zh: "期待您的光临。", ta: "உங்கள் வருகையை எதிர்பார்க்கிறோம்." },
+];
+const norm = (t) => String(t || "").trim().replace(/\s+/g, " ").replace(/[’‘]/g, "'").toLowerCase();
+/** The built-in translation of a phrase, or "" if it isn't one of the standard phrases. */
+export function builtInPhrase(text, from, to) {
+  const n = norm(text); if (!n || from === to) return "";
+  const row = PHRASES.find((r) => norm(r[from]) === n);
+  return row?.[to] || "";
+}
+/** Words the card itself adds, in each language. */
+const LABELS = {
+  dress: { en: (x) => `Dress code: ${x}`, ms: (x) => `Kod pakaian: ${x}`, zh: (x) => `着装要求：${x}`, ta: (x) => `ஆடை விதிமுறை: ${x}` },
+  forGuest: { en: (n) => `Specially for ${n}`, ms: (n) => `Istimewa buat ${n}`, zh: (n) => `特邀：${n}`, ta: (n) => `${n} அவர்களுக்குச் சிறப்பு அழைப்பு` },
+  noDate: { en: () => "Pick a date", ms: () => "Pilih tarikh", zh: () => "请选择日期", ta: () => "தேதியைத் தேர்ந்தெடுக்கவும்" },
+};
+/** Parts of the card that can be translated, in the order the editor lists them. `auto` = can use the Translate button. */
+export const TR_FIELDS = [
+  { k: "headline", label: "Heading", auto: true, area: false },
+  { k: "message", label: "Message", auto: true, area: true },
+  { k: "name1", label: "Names", auto: false, optional: true },
+  { k: "name2", label: "Second name", auto: false, optional: true },
+  { k: "venue", label: "Venue", auto: false, optional: true },
+  { k: "address", label: "Address", auto: false, optional: true },
+  { k: "dress", label: "Dress code", auto: true, area: false },
+];
+/** Which text to show for one part in the second language.
+    A translation saved for the current wording wins; then a built-in phrase; then an older saved translation; then the original. */
+export function translated(src, saved, d) {
+  if (saved?.t && saved.src === src) return { text: saved.t, how: saved.by === "auto" ? "auto" : "you" };
+  const b = builtInPhrase(src, d.lang1, d.lang2);
+  if (b) return { text: b, how: "built-in" };
+  if (saved?.t) return { text: saved.t, how: "stale" };
+  return { text: src, how: "none" };
+}
 const loadedFamilies = new Set(["", "Playfair+Display:ital,wght@0,400;0,500;1,500"]);   // already linked by every page
 /** Google Fonts stylesheet address for these fonts (used to embed fonts when saving the card as a picture). */
 export function fontCSSUrl(keys) {
@@ -52,8 +112,8 @@ export function fontCSSUrl(keys) {
 }
 /** The font keys a card uses: names, text and any second-language font. */
 export function cardFontKeys(inv) {
-  const s = cleanStyle(inv.style), d = cleanDetails(inv.details), alt = ALT_SCRIPTS[d.altScript];
-  return [s.nameFont, s.bodyFont, alt.key, "figtree", "playfair"].filter(Boolean);
+  const s = cleanStyle(inv.style), d = cleanDetails(inv.details);
+  return [s.nameFont, s.bodyFont, LANGS[d.lang1]?.key, LANGS[d.lang2]?.key, "figtree", "playfair"].filter(Boolean);
 }
 export function ensureFonts(keys) {
   if (typeof document === "undefined") return;
@@ -312,22 +372,36 @@ export function watchPhotos(onAspect) {
 export const SECTIONS = { headline: "Heading", names: "Names", message: "Message", divider: "Divider", when: "Date and time", where: "Venue and address", dress: "Dress code", extras: "Extra lines and schedule" };
 export const OPENINGS = { none: "Show the card straight away", envelope: "Envelope they tap to open", fade: "Gentle fade-in" };
 export const DEFAULT_DETAILS = {
-  altScript: "", altHeadline: "", altNames: "", altMessage: "", opening: "none", music: "",
+  lang1: "en", lang2: "", opening: "none", music: "",
   occasion: "wedding", name1: "", name2: "", headline: "Together with their families",
   message: "We would be honoured to have you with us as we begin our life together.",
   date: "", start: "11:00", end: "16:00", rsvpBy: "", venue: "", address: "", dress: "",
 };
-const LIMITS = { altScript: 8, altHeadline: 100, altNames: 100, altMessage: 400, opening: 10, music: 120, occasion: 20, name1: 60, name2: 60, headline: 80, message: 400, date: 10, start: 5, end: 5, rsvpBy: 10, venue: 120, address: 200, dress: 80 };
+const LIMITS = { lang1: 4, lang2: 4, opening: 10, music: 120, occasion: 20, name1: 60, name2: 60, headline: 80, message: 400, date: 10, start: 5, end: 5, rsvpBy: 10, venue: 120, address: 200, dress: 80 };
 export function cleanDetails(d) {
   d = d && typeof d === "object" ? d : {};
   const out = {};
   for (const k of Object.keys(DEFAULT_DETAILS)) out[k] = typeof d[k] === "string" ? d[k].slice(0, LIMITS[k]) : DEFAULT_DETAILS[k];
   if (!(out.occasion in OCCASIONS)) out.occasion = "wedding";   // invitations made before occasions existed are weddings
-  if (!(out.altScript in ALT_SCRIPTS)) out.altScript = "";
+  if (!(out.lang1 in LANGS)) out.lang1 = "en";
+  if (!(out.lang2 in LANGS) || out.lang2 === out.lang1) out.lang2 = "";
+  // translations of the second language: { t: text, src: the wording it was made from, by: "you" or "auto" }
+  const cleanTr = (x, max) => (x && typeof x === "object" && typeof x.t === "string" && x.t.trim()
+    ? { t: x.t.slice(0, max), src: String(x.src ?? "").slice(0, max), by: x.by === "auto" ? "auto" : "you" } : undefined);
+  const tr = d.tr && typeof d.tr === "object" ? d.tr : {};
+  out.tr = {};
+  for (const f of TR_FIELDS) { const v = cleanTr(tr[f.k], 400); if (v) out.tr[f.k] = v; }
+  // cards made with the earlier "lines under the English" second language
+  if (d.altScript && !d.lang2 && !d.tr) {
+    out.lang2 = { same: "ms", zh: "zh", ta: "ta" }[d.altScript] || "";
+    for (const [k, old] of [["headline", "altHeadline"], ["message", "altMessage"], ["name1", "altNames"]])
+      if (out.lang2 && typeof d[old] === "string" && d[old].trim()) out.tr[k] = { t: d[old].slice(0, 400), src: out[k], by: "you" };
+  }
   if (!(out.opening in OPENINGS)) out.opening = "none";
   if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[A-Za-z0-9_-]+\.(mp3|m4a|aac)$/.test(out.music)) out.music = "";
   out.extras = (Array.isArray(d.extras) ? d.extras : []).slice(0, 8).map((x) => ({
     time: String(x?.time ?? "").slice(0, 24), text: String(x?.text ?? "").slice(0, 120),
+    ...(cleanTr(x?.tr, 160) ? { tr: cleanTr(x.tr, 160) } : {}),
   }));
   const keys = Object.keys(SECTIONS);
   out.order = [...new Set((Array.isArray(d.order) ? d.order : []).filter((k) => keys.includes(k)))];
@@ -336,21 +410,30 @@ export function cleanDetails(d) {
   return out;
 }
 
-export function fmtDate(d) {
+export function fmtDate(d, lang = "en") {
   if (!d) return "";
   const x = new Date(d + "T00:00:00");
-  return isNaN(x) ? "" : x.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  return isNaN(x) ? "" : x.toLocaleDateString(LANGS[lang]?.locale || "en-SG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
-export function fmtTime(t) {
-  if (!t) return "";
+export function fmtTime(t, lang = "en") {
+  if (!t || !/^\d{1,2}:\d{2}$/.test(t)) return "";
   const [h, m] = t.split(":").map(Number);
+  if (lang !== "en" && LANGS[lang]) return new Date(2000, 0, 1, h, m).toLocaleTimeString(LANGS[lang].locale, { hour: "numeric", minute: "2-digit" });
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
 }
-export const timeRange = (d) => [fmtTime(d.start), fmtTime(d.end)].filter(Boolean).join(" – ");
+export const timeRange = (d, lang = "en") => [fmtTime(d.start, lang), fmtTime(d.end, lang)].filter(Boolean).join(" – ");
+
+/** The language buttons shown above a card that has two languages. */
+export function langSwitchHTML(d, current) {
+  d = cleanDetails(d);
+  if (!d.lang2) return "";
+  return `<div class="lang-switch" role="group" aria-label="Language">${[d.lang1, d.lang2].map((l) =>
+    `<button type="button" data-lang="${l}" lang="${l}" aria-pressed="${l === current}">${esc(LANGS[l].label)}</button>`).join("")}</div>`;
+}
 
 /* ---------- rendering ---------- */
 /** inv = { details, style, photo }. Returns the card's HTML. */
-export function cardHTML(inv, guestName) {
+export function cardHTML(inv, guestName, lang) {
   const d = cleanDetails(inv.details), s = cleanStyle(inv.style), p = cleanPhoto(inv.photo), src = photoUrl(p), occ = occasionOf(d);
   ensureFonts([s.nameFont, s.bodyFont]);
   const orn = s.ornament === "none" ? "" : s.ornament === "rule" ? `<div class="c-orn rule"></div>` : `<div class="c-orn" aria-hidden="true">${ORN[s.ornament]}</div>`;
@@ -363,31 +446,37 @@ export function cardHTML(inv, guestName) {
       photo = `<div class="c-photo ${p.shape} at-${p.mode}" style="${side ? "" : `width:${p.size}%;`}aspect-ratio:100/${p.h}">${img}</div>`;
     }
   }
-  const alt = ALT_SCRIPTS[d.altScript];
-  if (alt.key) ensureFonts([alt.key]);
-  const altLine = (text, cls) => (d.altScript && text ? `<p class="c-alt ${cls}"${alt.rtl ? ' dir="rtl"' : ""}${alt.font ? ` style="font-family:${alt.font}"` : ""}>${esc(text)}</p>` : "");
+  // which language to show: the second one only when asked for and set up
+  const L = lang && lang === d.lang2 ? d.lang2 : d.lang1, second = L !== d.lang1;
+  const T = (k) => (second ? translated(d[k], d.tr[k], d).text : d[k]);
+  const fontKeys = [LANGS[L].key].filter(Boolean); if (fontKeys.length) ensureFonts(fontKeys);
+  const n1 = T("name1") || occ.ph1, n2 = T("name2") || occ.ph2;
   const names = occ.two
-    ? `<h2 class="c-names"><span>${esc(d.name1 || occ.ph1)}</span><span class="amp">&amp;</span><span>${esc(d.name2 || occ.ph2)}</span></h2>`
-    : `<h2 class="c-names"><span>${esc(d.name1 || occ.ph1)}</span></h2>${d.name2 ? `<p class="c-sub">${esc(d.name2)}</p>` : ""}`;
+    ? `<h2 class="c-names"><span>${esc(n1)}</span><span class="amp">&amp;</span><span>${esc(n2)}</span></h2>`
+    : `<h2 class="c-names"><span>${esc(n1)}</span></h2>${d.name2 ? `<p class="c-sub">${esc(T("name2"))}</p>` : ""}`;
   const extras = d.extras.filter((x) => x.text.trim() || x.time.trim());
+  const xText = (x) => (second && x.text.trim() ? translated(x.text, x.tr, d).text : x.text);
+  const dress = T("dress");
   const parts = {
-    headline: (d.headline ? `<p class="c-head">${esc(d.headline)}</p>` : "") + altLine(d.altHeadline, "alt-head"),
-    names: names + altLine(d.altNames, "alt-names"),
-    message: (d.message ? `<p class="c-msg">${esc(d.message)}</p>` : "") + altLine(d.altMessage, "alt-msg"),
+    headline: d.headline ? `<p class="c-head">${esc(T("headline"))}</p>` : "",
+    names,
+    message: d.message ? `<p class="c-msg">${esc(T("message"))}</p>` : "",
     divider: orn,
-    when: `<p class="c-date">${esc(fmtDate(d.date) || "Pick a date")}</p><p class="c-time">${esc(timeRange(d))}</p>`,
-    where: (d.venue ? `<p class="c-venue">${esc(d.venue)}</p>` : "") + (d.address ? `<p class="c-addr">${esc(d.address)}</p>` : ""),
-    dress: d.dress ? `<p class="c-dress">Dress code: ${esc(d.dress)}</p>` : "",
-    extras: extras.length ? `<div class="c-extras">${extras.map((x) => `<p class="c-x">${x.time.trim() ? `<span class="c-xt">${esc(x.time)}</span>` : ""}<span>${esc(x.text)}</span></p>`).join("")}</div>` : "",
+    when: `<p class="c-date">${esc(fmtDate(d.date, L) || LABELS.noDate[L]())}</p><p class="c-time">${esc(timeRange(d, L))}</p>`,
+    where: (d.venue ? `<p class="c-venue">${esc(T("venue"))}</p>` : "") + (d.address ? `<p class="c-addr">${esc(T("address"))}</p>` : ""),
+    dress: d.dress ? `<p class="c-dress">${esc(LABELS.dress[L](dress))}</p>` : "",
+    extras: extras.length ? `<div class="c-extras">${extras.map((x) => `<p class="c-x">${x.time.trim() ? `<span class="c-xt">${esc(x.time)}</span>` : ""}<span>${esc(xText(x))}</span></p>`).join("")}</div>` : "",
   };
   const content = d.order.filter((k) => !d.hidden.includes(k)).map((k) => parts[k]).join("\n")
-    + (guestName ? `<p class="c-for">Specially for ${esc(guestName)}</p>` : "");
+    + (guestName ? `<p class="c-for">${esc(LABELS.forGuest[L](guestName))}</p>` : "");
   let body;
   if (photo && (p.mode === "left" || p.mode === "right")) {
     body = `<div class="c-side ${p.mode}" style="--pw:${Math.round(p.size * 0.55)}%">${photo}<div class="c-main">${content}</div></div>`;
   } else if (photo && p.mode === "bottom") body = content + photo;
   else body = photo + content;
-  return `<div class="card" style="${frameCSS(s)};--r:${s.radius}px"><div class="card-inner${s.line ? " lined" : ""}${bg ? " has-bg" : ""} shape-${s.shape}" style="${innerVars(s)}${veil}">
+  // Chinese and Tamil letters aren't in the card's fonts, so add a matching font after them (Latin letters keep the template's font)
+  const sf = LANGS[L].font ? `;--nf:${FONTS[s.nameFont][1].replace(/(serif|cursive|sans-serif)$/, LANGS[L].font + ",$1")};--bf:${FONTS[s.bodyFont][1].replace(/(serif|cursive|sans-serif)$/, LANGS[L].font + ",$1")}` : "";
+  return `<div class="card" lang="${L}" style="${frameCSS(s)};--r:${s.radius}px"><div class="card-inner${s.line ? " lined" : ""}${bg ? " has-bg" : ""} shape-${s.shape}" style="${innerVars(s)}${veil}${sf}">
     ${bg}${cornersHTML(s.corners)}${body}
   </div></div>`;
 }

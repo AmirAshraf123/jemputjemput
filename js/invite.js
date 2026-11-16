@@ -3,7 +3,7 @@
 //   Group link:    invite.html#g/<group code>   (anyone in a group chat)
 // Add "/preview" to either to see it without being able to reply.
 import { sb, $, toast } from "./sb.js";
-import { cardHTML, cleanDetails, cleanStyle, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord, initialsFor, musicUrl, mix } from "./card.js";
+import { cardHTML, langSwitchHTML, cleanDetails, cleanStyle, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord, initialsFor, musicUrl, mix } from "./card.js";
 
 const params = new URLSearchParams(location.search);
 const parts = location.hash.slice(1).split("/");
@@ -13,6 +13,7 @@ const preview = (isGroup ? parts[2] : parts[1]) === "preview" || params.has("pre
 let token = isGroup ? "" : (parts[0] || params.get("g") || "").replace(/[^a-f0-9]/gi, "");
 
 let inv = null, guest = null, draft = null, maxSeats = 1, openingDone = false, music = null;
+let lang = "";   // which language the card is showing, for two-language cards
 let mode = "personal";   // "personal": replying as a known guest; "group": filling in the group form
 
 watchPhotos();
@@ -72,9 +73,29 @@ function calLink(d) {
     + `&dates=${day}T${t(d.start)}/${day}T${t(d.end || d.start)}&ctz=Asia/Singapore&location=` + encodeURIComponent([d.venue, d.address].filter(Boolean).join(", "));
 }
 
+/* Two-language cards: the guest picks with a button. Start with their last choice, or their phone's language if it's the second one. */
+function pickLang(d) {
+  if (!d.lang2) return d.lang1;
+  try { const saved = localStorage.getItem("jemput.lang"); if (saved === d.lang1 || saved === d.lang2) return saved; } catch { }
+  return (navigator.languages || [navigator.language || ""]).some((l) => String(l).toLowerCase().startsWith(d.lang2)) ? d.lang2 : d.lang1;
+}
+function renderCard() {
+  const d = cleanDetails(inv.details);
+  if (!lang || (lang !== d.lang1 && lang !== d.lang2)) lang = pickLang(d);
+  $("langSw").innerHTML = langSwitchHTML(d, lang);
+  $("card").innerHTML = cardHTML(inv, guest?.name, lang);
+}
+$("langSw").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-lang]"); if (!b || b.dataset.lang === lang) return;
+  lang = b.dataset.lang;
+  try { localStorage.setItem("jemput.lang", lang); } catch { }
+  renderCard();
+  $("langSw").querySelector(`[data-lang="${lang}"]`)?.focus();
+});
+
 function render() {
   const d = cleanDetails(inv.details);
-  $("card").innerHTML = cardHTML(inv, guest?.name);
+  renderCard();
   const place = [d.venue, d.address].filter(Boolean).join(", ");
   const map = place ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(place) : "";
   $("details").hidden = false;

@@ -237,16 +237,20 @@
             <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec8"><span
                   class="sec-title">Second language</span></button></legend>
             <div class="sec-body" id="sec8">
-              <label class="f">Language<select id="altScript" data-k="altScript"></select></label>
-              <div id="altFields" class="alt-fields">
-                <label class="f">Heading in the second language<input id="altHeadline" data-k="altHeadline"
-                    maxlength="100"></label>
-                <label class="f">Names in the second language (optional)<input id="altNames" data-k="altNames"
-                    maxlength="100"></label>
-                <label class="f">Message in the second language<textarea id="altMessage" data-k="altMessage"
-                    maxlength="400"></textarea></label>
+              <p class="hint">Guests get a button on the card to switch languages. Only one language shows at a time, so
+                the card doesn't get longer.</p>
+              <div class="row">
+                <label class="f">Your card is written in<select id="lang1" data-k="lang1"></select></label>
+                <label class="f">Second language<select id="lang2" data-k="lang2"></select></label>
               </div>
-              <p class="hint">Each line appears under its English version, in a font made for that script.</p>
+              <div id="trBox" class="tr-box" hidden>
+                <p class="hint" id="trIntro"></p>
+                <div><button type="button" class="btn sm" id="trAll">Translate everything</button></div>
+                <div id="trList" class="tr-list"></div>
+                <p class="hint small">The Translate buttons use MyMemory, a free online translator, so the text of that
+                  line is sent to it. Machine translations can be off, so check them or ask someone who reads the
+                  language. Built-in wording, dates and labels are translated without going online.</p>
+              </div>
             </div>
           </fieldset>
           <fieldset>
@@ -282,6 +286,7 @@
         </div>
         <div class="preview" id="preview">
           <h2 class="sec">Preview</h2>
+          <div id="pvLang" class="pv-lang"></div>
           <div class="pv-frame" id="pvFrame">
             <div class="pv-scale" id="pvScale">
               <div id="designCard"></div>

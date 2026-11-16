@@ -242,27 +242,41 @@
   align-content: center
 }
 
-/* second-language lines */
-.card-inner .c-alt {
-  margin-top: -4px;
-  opacity: .92
+/* language switch above a two-language card (editor preview and guest page) */
+.lang-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--sunk, #eee6d6);
+  border: 1px solid var(--line, #d9cdb5)
 }
 
-.card-inner .c-alt.alt-head {
-  font-size: .85em;
-  letter-spacing: .04em;
-  color: var(--hc, inherit)
+.lang-switch button {
+  min-height: 40px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--fg, #2b2418);
+  font: 500 15px var(--ui, system-ui);
+  cursor: pointer
 }
 
-.card-inner .c-alt.alt-names {
-  font-size: 1.25em;
-  color: var(--acc)
+.lang-switch button[aria-pressed="true"] {
+  background: var(--accent, #1e5b4b);
+  color: var(--accent-ink, #fff);
+  font-weight: 600
 }
 
-.card-inner .c-alt.alt-msg {
-  max-width: 30ch;
-  font-size: 1em;
-  line-height: 1.5
+.lang-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px
+}
+
+.lang-row:empty {
+  display: none
 }
 
 /* extra lines and schedule */
