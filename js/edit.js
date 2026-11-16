@@ -2,7 +2,7 @@
 import { sb, requireUser, signOut, $, toast, isConfigured, showSetupNotice } from "./sb.js";
 import {
   esc, clamp, FONTS, PRESETS, presetById, cleanStyle, cleanPhoto, cleanDetails, imgCSS, SHAPE_DEF,
-  cardHTML, thumbHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor,
+  cardHTML, thumbHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor, ensureFonts,
 } from "./card.js";
 
 if (!isConfigured) showSetupNotice();
@@ -21,6 +21,7 @@ let inv = null;            // { id, template, details, style, photo }
 let group = null;          // { token, enabled, max } or null when the database update hasn't been run
 let guests = [], myTpls = [];
 let filter = "all", confirmDel = null, confirmTpl = null, confirmPhoto = false;
+const canShare = typeof navigator.share === "function";   // the phone's own share sheet (most phones; some desktop browsers)
 let saveTimer = null, dirty = false, photoBusy = false, drag = null;
 
 /* ---------- load (called at the bottom, once everything below is defined) ---------- */
@@ -78,6 +79,7 @@ window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault()
 
 /* ---------- design form ---------- */
 function setupFontSelects() {
+  ensureFonts(Object.keys(FONTS));   // the font menus preview every font
   const opts = Object.entries(FONTS).map(([k, v]) => `<option value="${k}">${esc(v[0])}</option>`).join("");
   for (const sel of [$("sNameFont"), $("sBodyFont")]) {
     sel.innerHTML = opts;
@@ -180,6 +182,16 @@ function closeFull() {
 $("pvFull").addEventListener("click", openFull);
 $("pvClose").addEventListener("click", closeFull);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("pvFullView").hidden) closeFull(); });
+/* ---------- collapsible sections: everything open on wide screens; on phones only the essentials ---------- */
+function setSection(fs, open) {
+  fs.querySelector(".sec-body").hidden = !open;
+  fs.querySelector(".sec-toggle").setAttribute("aria-expanded", String(open));
+  fs.classList.toggle("closed", !open);
+}
+for (const fs of document.querySelectorAll("#designForm fieldset")) {
+  setSection(fs, !phone.matches || !!fs.dataset.openPhone);
+  fs.querySelector(".sec-toggle").addEventListener("click", () => setSection(fs, fs.classList.contains("closed")));
+}
 // Show the save status next to the preview too, since the header scrolls away on phones.
 new MutationObserver(() => { $("pvSave").textContent = $("saveState").textContent; })
   .observe($("saveState"), { childList: true, characterData: true, subtree: true });
@@ -421,8 +433,9 @@ function renderStats() {
   const sum = (arr, f) => arr.reduce((a, g) => a + f(g), 0);
   const seats = sum(guests, (g) => g.seats), coming = sum(guests.filter((g) => g.status === "yes"), (g) => g.coming);
   const waiting = guests.filter((g) => g.status === "pending").length, declined = guests.filter((g) => g.status === "no").length;
-  $("stats").innerHTML = [
-    ["", guests.length, "invitations"], ["", seats, "seats offered"], ["yes", coming, "people coming"],
+  // On phones the two totals become one line above three tiles (see .stats-line in base.css).
+  $("stats").innerHTML = `<p class="stats-line">${guests.length} ${guests.length === 1 ? "invitation" : "invitations"} · ${seats} seats offered</p>` + [
+    ["total", guests.length, "invitations"], ["total", seats, "seats offered"], ["yes", coming, "people coming"],
     ["wait", waiting, "still to reply"], ["no", declined, "can't make it"],
   ].map(([c, n, l]) => `<div class="stat ${c}"><b>${n}</b><span>${l}</span></div>`).join("");
 }
@@ -442,14 +455,15 @@ function renderGuests() {
   $("gBody").innerHTML = list.map((g) => {
     const wa = waNumber(g.phone);
     return `<tr>
-      <td><b>${esc(g.name)}</b>${g.source === "group" ? ` <span class="tag">Group link</span>` : ""}${g.phone ? `<div class="sub">${esc(g.phone)}</div>` : ""}
+      <td class="g-name"><b>${esc(g.name)}</b>${g.source === "group" ? ` <span class="tag">Group link</span>` : ""}${g.phone ? `<div class="sub">${esc(g.phone)}</div>` : ""}
         ${g.dup_reason ? `<div class="dup"><span>Possible duplicate: ${esc(g.dup_reason)}</span> <button class="linkbtn" data-act="notdup" data-id="${g.id}">Not a duplicate</button></div>` : ""}</td>
-      <td>${esc(g.side)}</td>
-      <td class="num">${g.status === "yes" ? `${g.coming} of ${g.seats}` : g.seats}</td>
-      <td><span class="pill ${esc(g.status)}">${label[g.status] || "Waiting"}</span></td>
-      <td>${g.dietary ? `<div>${esc(g.dietary)}</div>` : ""}${g.note ? `<div class="sub">“${esc(g.note)}”</div>` : ""}</td>
-      <td><div class="acts">
+      <td class="g-side" data-label="Side">${esc(g.side)}</td>
+      <td class="num g-seats" data-label="Seats">${g.status === "yes" ? `${g.coming} of ${g.seats}` : g.seats}</td>
+      <td class="g-reply"><span class="pill ${esc(g.status)}">${label[g.status] || "Waiting"}</span></td>
+      <td class="g-notes">${g.dietary ? `<div>${esc(g.dietary)}</div>` : ""}${g.note ? `<div class="sub">“${esc(g.note)}”</div>` : ""}</td>
+      <td class="g-acts"><div class="acts">
         ${wa ? `<a class="btn sm" href="https://wa.me/${wa}?text=${encodeURIComponent(inviteText(g))}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
+        ${canShare ? `<button class="btn sm ghost" data-act="share" data-id="${g.id}">Share…</button>` : ""}
         <button class="btn sm ghost" data-act="copy" data-id="${g.id}">Copy message</button>
         <a class="btn sm ghost" href="${esc(guestLink(g))}/preview" target="_blank" rel="noopener">Preview</a>
         <button class="btn sm ${confirmDel === g.id ? "danger" : "ghost"}" data-act="del" data-id="${g.id}">${confirmDel === g.id ? "Confirm remove" : "Remove"}</button>
@@ -465,7 +479,9 @@ $("filters").addEventListener("click", (e) => {
 $("gBody").addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-act]"); if (!b) return;
   const g = guests.find((x) => x.id === b.dataset.id); if (!g) return;
-  if (b.dataset.act === "copy") {
+  if (b.dataset.act === "share") {
+    navigator.share({ text: inviteText(g) }).catch(() => { });   // closing the share sheet isn't an error worth showing
+  } else if (b.dataset.act === "copy") {
     try { await navigator.clipboard.writeText(inviteText(g)); toast("Invitation message copied"); }
     catch { toast("Couldn't copy automatically. Use Preview to get the link."); }
   } else if (b.dataset.act === "notdup") {
@@ -480,6 +496,28 @@ $("gBody").addEventListener("click", async (e) => {
     guests = guests.filter((x) => x.id !== g.id); renderGuests(); toast("Guest removed");
   }
 });
+// Phone extras: the share sheet for the group link, and picking guests from contacts (Android Chrome supports this; iPhone doesn't).
+$("grpShare").hidden = !canShare;
+$("grpShare").addEventListener("click", () => navigator.share({ text: groupText() }).catch(() => { }));
+const canPickContacts = "contacts" in navigator && "ContactsManager" in window;
+$("contactsRow").hidden = !canPickContacts;
+$("fromContacts").addEventListener("click", async () => {
+  let picked;
+  try { picked = await navigator.contacts.select(["name", "tel"], { multiple: true }); } catch { return; }
+  const seats = Math.round(clamp($("gSeats").value, 1, 50, 2)), side = $("gSide").value;
+  const rows = (picked || []).map((c) => {
+    const tel = String(c.tel?.[0] || "").trim().slice(0, 40);
+    const name = String(c.name?.[0] || tel).trim().slice(0, 120);
+    return name ? { invitation_id: inv.id, name, phone: tel, seats, side } : null;
+  }).filter(Boolean);
+  if (!rows.length) return;
+  const { data, error } = await sb.from("guests").insert(rows).select("*");
+  if (error) { toast("Couldn't add them: " + error.message); return; }
+  for (const g of data || []) if (!guests.some((x) => x.id === g.id)) guests.push(g);
+  renderGuests();
+  toast(rows.length === 1 ? `Added ${rows[0].name}` : `Added ${rows.length} guests`);
+});
+
 $("addForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const row = {

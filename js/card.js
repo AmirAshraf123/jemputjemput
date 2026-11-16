@@ -26,6 +26,27 @@ export const FONTS = {
   figtree: ["Figtree", "'Figtree',system-ui,sans-serif"],
 };
 
+/* Google Fonts request for each font. Pages only load the site's own fonts (Figtree and Playfair Display);
+   card fonts are added the first time a card or swatch needs them, so a guest downloads only their card's two fonts. */
+const GFAMILY = {
+  italiana: "Italiana", marcellus: "Marcellus", cinzel: "Cinzel:wght@400;600",
+  playfair: "Playfair+Display:ital,wght@0,400;0,500;1,500", playfairI: "Playfair+Display:ital,wght@0,400;0,500;1,500",
+  abril: "Abril+Fatface", poiret: "Poiret+One", greatvibes: "Great+Vibes", parisienne: "Parisienne", amiri: "Amiri:wght@400;700",
+  cormorant: "Cormorant+Garamond:ital,wght@0,400;0,600;1,400", cormorantI: "Cormorant+Garamond:ital,wght@0,400;0,600;1,400",
+  ebgaramond: "EB+Garamond:ital@0;1", lora: "Lora:ital@0;1", josefin: "Josefin+Sans:wght@300;400;600", figtree: "",
+};
+const loadedFamilies = new Set(["", "Playfair+Display:ital,wght@0,400;0,500;1,500"]);   // already linked by every page
+export function ensureFonts(keys) {
+  if (typeof document === "undefined") return;
+  const want = [...new Set(keys.map((k) => GFAMILY[k]).filter((f) => f !== undefined && !loadedFamilies.has(f)))];
+  if (!want.length) return;
+  want.forEach((f) => loadedFamilies.add(f));
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "https://fonts.googleapis.com/css2?" + want.map((f) => "family=" + f).join("&") + "&display=swap";
+  document.head.appendChild(link);
+}
+
 /* ---------- templates ---------- */
 const BASE = { nameSize: 44, bodySize: 16, align: "center", radius: 0, line: false, ornament: "rule" };
 export const PRESETS = [
@@ -236,6 +257,7 @@ export const timeRange = (d) => [fmtTime(d.start), fmtTime(d.end)].filter(Boolea
 /** inv = { details, style, photo }. Returns the card's HTML. */
 export function cardHTML(inv, guestName) {
   const d = cleanDetails(inv.details), s = cleanStyle(inv.style), p = cleanPhoto(inv.photo), src = photoUrl(p), occ = occasionOf(d);
+  ensureFonts([s.nameFont, s.bodyFont]);
   const orn = s.ornament === "none" ? "" : s.ornament === "rule" ? `<div class="c-orn rule"></div>` : `<div class="c-orn" aria-hidden="true">${ORN[s.ornament]}</div>`;
   let bg = "", photo = "", veil = "";
   if (src) {
@@ -273,5 +295,6 @@ export function cardHTML(inv, guestName) {
 /** Small template swatch with the event's initials. */
 export function thumbHTML(style, label, initials) {
   const s = cleanStyle(style), nf = FONTS[s.nameFont];
+  ensureFonts([s.nameFont]);
   return `<span class="thumb" style="${frameCSS(s, 0.45)};border-radius:${Math.round(s.radius * 0.5)}px"><span class="thumb-in" style="background:${s.bg};color:${s.accent};font-family:${nf[1]};font-style:${nf[2] || "normal"};border-radius:${Math.round(s.radius * 0.3)}px">${esc(initials)}</span></span>${esc(label)}`;
 }

@@ -23,7 +23,8 @@ All file paths below are relative to the top of the project folder.
 | `js/edit.js`, `js/dashboard.js`, `js/invite.js`, `js/landing.js` | The code for each page |
 | `js/sb.js` | Connects to Supabase and a few shared helpers |
 | `css/base.css`, `css/card.css` | Site styles and card styles |
-| `img/` | The Jemput logo (`logo.svg`, `logo-120.png`, `logo-512.png`) and browser and phone icons |
+| `img/` | The Jemput logo (`logo.svg`, `logo-120.png`, `logo-512.png`), browser icon, and home-screen icons |
+| `manifest.webmanifest` | Lets people add Jemput to their phone's home screen like an app |
 | `supabase/schema.sql` | Sets up the database, security rules and photo storage (for a new setup) |
 | `supabase/002_group_links.sql` | One-time update for setups made before group links existed |
 | `.github/workflows/keep-awake.yml` | Optional: keeps a free Supabase project from pausing (step 6C) |

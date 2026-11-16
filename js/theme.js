@@ -11,8 +11,9 @@
   apply(saved());
 
   document.addEventListener("DOMContentLoaded", function () {
+    setupMenu();
     var inFooter = false;
-    var host = document.querySelector("header.top .hdr-right") || document.querySelector("header.top .wrap");
+    var host = document.querySelector("header.top .hdr-right");
     if (!host) { host = document.querySelector(".foot-note"); inFooter = true; }
     if (!host) return;
     var label = document.createElement("label");
@@ -29,7 +30,34 @@
     sel.value = saved();
     sel.addEventListener("change", function () {
       apply(sel.value);
-      try { localStorage.setItem(KEY, sel.value); } catch (e) {}
+      try { localStorage.setItem(KEY, sel.value); } catch (e) { }
     });
   });
+
+  // On phones the header shrinks to one row: the logo and a Menu button. The menu holds
+  // whatever sits on the right of the header on wider screens (theme, sign out and so on).
+  function setupMenu() {
+    var wrap = document.querySelector("header.top .wrap");
+    if (!wrap) return;
+    var right = wrap.querySelector(".hdr-right");
+    if (!right) { right = document.createElement("div"); right.className = "hdr-right"; wrap.appendChild(right); }
+    right.id = "hdrMenu";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "menu-btn"; btn.textContent = "Menu";
+    btn.setAttribute("aria-expanded", "false"); btn.setAttribute("aria-controls", "hdrMenu");
+    wrap.insertBefore(btn, right);
+    var header = wrap.parentElement;
+    function setOpen(open) {
+      header.classList.toggle("menu-open", open);
+      btn.setAttribute("aria-expanded", String(open));
+      btn.textContent = open ? "Close" : "Menu";
+    }
+    btn.addEventListener("click", function () { setOpen(!header.classList.contains("menu-open")); });
+    document.addEventListener("click", function (e) {
+      if (header.classList.contains("menu-open") && !right.contains(e.target) && e.target !== btn) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && header.classList.contains("menu-open")) { setOpen(false); btn.focus(); }
+    });
+  }
 })();

@@ -582,6 +582,18 @@ h3.sub-h {
   margin: 0
 }
 
+.contacts-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px
+}
+
+.contacts-row .hint {
+  flex: 1 1 220px
+}
+
 .occ-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -1425,4 +1437,375 @@ td .tag {
   a {
     text-decoration-thickness: 2px
   }
+}
+
+/* ---------- phones: guest list as cards, compact totals ---------- */
+.stats-line {
+  display: none
+}
+
+@media (max-width:640px) {
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px
+  }
+
+  .stats .stat.total {
+    display: none
+  }
+
+  .stats-line {
+    display: block;
+    grid-column: 1/-1;
+    margin: 0;
+    font-weight: 600;
+    color: var(--muted)
+  }
+
+  .stat {
+    padding: 10px 12px
+  }
+
+  .stat b {
+    font-size: 24px
+  }
+
+  .stat span {
+    font-size: 13px;
+    line-height: 1.3
+  }
+
+  .tablewrap {
+    overflow: visible;
+    background: none;
+    border: 0
+  }
+
+  table {
+    min-width: 0
+  }
+
+  thead {
+    display: none
+  }
+
+  tbody {
+    display: grid;
+    gap: 10px
+  }
+
+  tbody tr {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "name name name reply" "side seats . ." "notes notes notes notes" "acts acts acts acts";
+    column-gap: 14px;
+    row-gap: 6px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius)
+  }
+
+  tbody td {
+    display: block;
+    padding: 0;
+    border: 0
+  }
+
+  td.g-name {
+    grid-area: name;
+    min-width: 0
+  }
+
+  td.g-reply {
+    grid-area: reply;
+    justify-self: end
+  }
+
+  td.g-side {
+    grid-area: side;
+    font-size: 14px
+  }
+
+  td.g-seats {
+    grid-area: seats;
+    font-size: 14px
+  }
+
+  td.g-notes {
+    grid-area: notes;
+    font-size: 14px
+  }
+
+  td.g-notes:empty {
+    display: none
+  }
+
+  td.g-acts {
+    grid-area: acts;
+    margin-top: 4px
+  }
+
+  td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--muted)
+  }
+
+  td.empty {
+    grid-column: 1/-1
+  }
+
+  tbody tr:has(td.empty) {
+    display: block
+  }
+}
+
+/* ---------- phones: one-row header with a Menu button; editor tabs at the bottom ---------- */
+.menu-btn {
+  display: none
+}
+
+@media (max-width:640px) {
+  header.top .wrap {
+    flex-wrap: nowrap;
+    position: relative;
+    padding-block: 10px
+  }
+
+  .brand {
+    min-width: 0;
+    gap: 8px
+  }
+
+  .brand b {
+    font-size: 24px
+  }
+
+  .brand span {
+    display: none
+  }
+
+  body.editor .brand span {
+    display: inline;
+    font-size: 13px;
+    white-space: nowrap
+  }
+
+  .menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid var(--ctl-line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--fg);
+    font: 600 15px var(--ui);
+    cursor: pointer
+  }
+
+  header.top .hdr-right {
+    display: none
+  }
+
+  header.top.menu-open .hdr-right {
+    display: grid;
+    gap: 10px;
+    position: absolute;
+    top: calc(100% - 4px);
+    right: max(16px, env(safe-area-inset-right, 0px));
+    z-index: 6;
+    min-width: min(260px, calc(100vw - 32px));
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .18)
+  }
+
+  header.top.menu-open .hdr-right>* {
+    width: 100%;
+    justify-content: center
+  }
+
+  header.top.menu-open .hdr-right .who {
+    text-align: center;
+    max-width: none
+  }
+
+  .theme-pick select {
+    width: 100%
+  }
+
+  body.editor nav.tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    border-radius: 0;
+    gap: 6px;
+    padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, .08)
+  }
+
+  body.editor nav.tabs button {
+    flex: 1;
+    min-height: 48px;
+    font-size: 16px;
+    border-radius: 12px
+  }
+
+  body.editor nav.tabs button[aria-selected="true"] {
+    background: var(--accent);
+    color: var(--accent-ink)
+  }
+
+  body.editor main {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px))
+  }
+
+  body.editor .toast {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px))
+  }
+}
+
+/* ---------- collapsible editor sections ---------- */
+legend .sec-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  margin: -8px 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: 700 17px var(--ui);
+  text-align: left;
+  cursor: pointer
+}
+
+legend .sec-toggle::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  flex: none;
+  margin-right: 6px;
+  border-right: 2.5px solid var(--muted);
+  border-bottom: 2.5px solid var(--muted);
+  transform: rotate(45deg) translateY(-3px);
+  transition: transform .15s
+}
+
+fieldset.closed legend .sec-toggle::after {
+  transform: rotate(-45deg)
+}
+
+fieldset.closed {
+  gap: 0
+}
+
+fieldset.closed legend {
+  margin-bottom: 0
+}
+
+.sec-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0
+}
+
+fieldset.closed #resetStyle,
+fieldset.closed #tplState {
+  display: none
+}
+
+/* ---------- bigger touch targets ---------- */
+/* Sliders: the whole 44px-tall strip can be dragged, with a large, clearly visible handle. */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 44px;
+  min-height: 44px;
+  background: transparent;
+  cursor: pointer
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ctl-line)
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--ctl-line), 0 1px 3px rgba(0, 0, 0, .25)
+}
+
+input[type=range]::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ctl-line)
+}
+
+input[type=range]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--ctl-line)
+}
+
+input[type=range]:focus-visible {
+  outline: none
+}
+
+input[type=range]:focus-visible::-webkit-slider-thumb {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px
+}
+
+input[type=range]:focus-visible::-moz-range-thumb {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px
+}
+
+.switch input {
+  width: 56px;
+  height: 32px
+}
+
+.switch input::after {
+  width: 24px;
+  height: 24px
+}
+
+.switch input:checked::after {
+  transform: translateX(24px)
+}
+
+.foot-note a,
+.site-foot a {
+  display: inline-block;
+  padding: 12px 6px;
+  margin: -12px -6px
+}
+
+.dup .linkbtn,
+.thanks .linkbtn {
+  min-height: 44px
 }

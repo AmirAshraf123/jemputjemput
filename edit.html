@@ -7,11 +7,16 @@
   <title>Edit invitation · Jemput</title>
   <script src="js/theme.js"></script>
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Jemput">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <meta name="theme-color" content="#1f5c4a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Amiri:wght@400;700&family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital@0;1&family=Figtree:wght@400;500;600;700&family=Great+Vibes&family=Italiana&family=Josefin+Sans:wght@300;400;600&family=Lora:ital@0;1&family=Marcellus&family=Parisienne&family=Playfair+Display:ital,wght@0,400;0,500;1,500&family=Poiret+One&display=swap">
+    href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,500&display=swap">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/card.css">
 </head>
@@ -38,149 +43,168 @@
     <section id="v-design" hidden>
       <div class="design">
         <div class="form" id="designForm">
-          <fieldset>
-            <legend>Template <small id="tplState"></small></legend>
-            <div class="tpls" id="tpls"></div>
-            <div id="mineWrap" hidden>
-              <h3 class="sub-h">Your templates</h3>
-              <div class="tpls" id="mine" style="margin-top:8px"></div>
+          <fieldset data-open-phone="1">
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec1"><span
+                  class="sec-title">Template</span></button> <small id="tplState"></small></legend>
+            <div class="sec-body" id="sec1">
+              <div class="tpls" id="tpls"></div>
+              <div id="mineWrap" hidden>
+                <h3 class="sub-h">Your templates</h3>
+                <div class="tpls" id="mine" style="margin-top:8px"></div>
+              </div>
             </div>
           </fieldset>
 
           <fieldset id="photoBox">
-            <legend>Photo or background</legend>
-            <div class="drop" id="drop">
-              <span id="phPrev"><span class="ph-empty" aria-hidden="true">＋</span></span>
-              <div class="txt">
-                <label class="btn ghost sm" for="photoFile" id="photoBtn">Choose a photo</label>
-                <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-                <span class="hint" id="photoNote">Or drag a photo here. JPG, PNG or WebP.</span>
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec2"><span
+                  class="sec-title">Photo or background</span></button></legend>
+            <div class="sec-body" id="sec2">
+              <div class="drop" id="drop">
+                <span id="phPrev"><span class="ph-empty" aria-hidden="true">＋</span></span>
+                <div class="txt">
+                  <label class="btn ghost sm" for="photoFile" id="photoBtn">Choose a photo</label>
+                  <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+                  <span class="hint" id="photoNote">Or drag a photo here. JPG, PNG or WebP.</span>
+                </div>
               </div>
-            </div>
-            <div id="photoOpts" hidden style="display:grid;gap:12px">
-              <div class="row">
-                <label class="f">Placement<select id="pMode" data-p="mode">
-                    <option value="top">Above the text</option>
-                    <option value="bottom">Below the text</option>
-                    <option value="left">Left of the text</option>
-                    <option value="right">Right of the text</option>
-                    <option value="background">Full background</option>
-                  </select></label>
-                <label class="f" id="pShapeWrap">Shape<select id="pShape" data-p="shape">
-                    <option value="arch">Arch</option>
-                    <option value="circle">Circle / oval</option>
-                    <option value="rect">Rectangle</option>
-                  </select></label>
-              </div>
-              <div class="row" id="pSizeRow">
-                <label class="f">Frame width <output id="oSize"></output><input type="range" id="pSize" data-p="size"
-                    min="30" max="100" step="1"></label>
-                <label class="f">Frame height <output id="oH"></output><input type="range" id="pH" data-p="h" min="40"
-                    max="200" step="1"></label>
-              </div>
-              <p class="hint">Drag the photo in the preview to move it, and use Zoom to fill the frame.</p>
-              <div class="row">
-                <label class="f">Zoom <output id="oZoom"></output><input type="range" id="pZoom" data-p="zoom" min="20"
-                    max="300" step="1"></label>
-                <label class="f">Left / right <output id="oPosX"></output><input type="range" id="pPosX" data-p="dx"
-                    min="-100" max="100" step="1"></label>
-                <label class="f">Up / down <output id="oPosY"></output><input type="range" id="pPosY" data-p="dy"
-                    min="-100" max="100" step="1"></label>
-              </div>
-              <label class="f" id="pFadeWrap">Card colour over photo <output id="oFade"></output><input type="range"
-                  id="pFade" data-p="fade" min="0" max="90" step="1"></label>
-              <div class="acts">
-                <button type="button" class="btn sm" id="matchFrame">Fit frame to photo</button>
-                <button type="button" class="btn sm ghost" id="fitPhoto">Show whole photo</button>
-                <button type="button" class="btn sm ghost" id="recenter">Fill the frame</button>
-                <button type="button" class="btn sm ghost" id="removePhoto">Remove photo</button>
+              <div id="photoOpts" hidden style="display:grid;gap:12px">
+                <div class="row">
+                  <label class="f">Placement<select id="pMode" data-p="mode">
+                      <option value="top">Above the text</option>
+                      <option value="bottom">Below the text</option>
+                      <option value="left">Left of the text</option>
+                      <option value="right">Right of the text</option>
+                      <option value="background">Full background</option>
+                    </select></label>
+                  <label class="f" id="pShapeWrap">Shape<select id="pShape" data-p="shape">
+                      <option value="arch">Arch</option>
+                      <option value="circle">Circle / oval</option>
+                      <option value="rect">Rectangle</option>
+                    </select></label>
+                </div>
+                <div class="row" id="pSizeRow">
+                  <label class="f">Frame width <output id="oSize"></output><input type="range" id="pSize" data-p="size"
+                      min="30" max="100" step="1"></label>
+                  <label class="f">Frame height <output id="oH"></output><input type="range" id="pH" data-p="h" min="40"
+                      max="200" step="1"></label>
+                </div>
+                <p class="hint">Drag the photo in the preview to move it, and use Zoom to fill the frame.</p>
+                <div class="row">
+                  <label class="f">Zoom <output id="oZoom"></output><input type="range" id="pZoom" data-p="zoom"
+                      min="20" max="300" step="1"></label>
+                  <label class="f">Left / right <output id="oPosX"></output><input type="range" id="pPosX" data-p="dx"
+                      min="-100" max="100" step="1"></label>
+                  <label class="f">Up / down <output id="oPosY"></output><input type="range" id="pPosY" data-p="dy"
+                      min="-100" max="100" step="1"></label>
+                </div>
+                <label class="f" id="pFadeWrap">Card colour over photo <output id="oFade"></output><input type="range"
+                    id="pFade" data-p="fade" min="0" max="90" step="1"></label>
+                <div class="acts">
+                  <button type="button" class="btn sm" id="matchFrame">Fit frame to photo</button>
+                  <button type="button" class="btn sm ghost" id="fitPhoto">Show whole photo</button>
+                  <button type="button" class="btn sm ghost" id="recenter">Fill the frame</button>
+                  <button type="button" class="btn sm ghost" id="removePhoto">Remove photo</button>
+                </div>
               </div>
             </div>
           </fieldset>
 
           <fieldset id="styleBox">
-            <legend>Make it yours <button type="button" class="btn sm ghost" id="resetStyle">Reset to template</button>
-            </legend>
-            <h3 class="sub-h">Fonts</h3>
-            <div class="row">
-              <label class="f">Names font<select id="sNameFont" data-s="nameFont"></select></label>
-              <label class="f">Text font<select id="sBodyFont" data-s="bodyFont"></select></label>
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec3"><span
+                  class="sec-title">Make it yours</span></button> <button type="button" class="btn sm ghost"
+                id="resetStyle">Reset to template</button></legend>
+            <div class="sec-body" id="sec3">
+              <h3 class="sub-h">Fonts</h3>
+              <div class="row">
+                <label class="f">Names font<select id="sNameFont" data-s="nameFont"></select></label>
+                <label class="f">Text font<select id="sBodyFont" data-s="bodyFont"></select></label>
+              </div>
+              <div class="row">
+                <label class="f">Names size <output id="oNameSize"></output><input type="range" id="sNameSize"
+                    data-s="nameSize" min="28" max="64" step="1"></label>
+                <label class="f">Text size <output id="oBodySize"></output><input type="range" id="sBodySize"
+                    data-s="bodySize" min="13" max="20" step="1"></label>
+                <label class="f">Alignment<select id="sAlign" data-s="align">
+                    <option value="center">Centred</option>
+                    <option value="left">Left</option>
+                  </select></label>
+              </div>
+              <h3 class="sub-h">Colours</h3>
+              <div class="row colors">
+                <label class="f">Card<input type="color" id="sBg" data-s="bg"></label>
+                <label class="f">Text<input type="color" id="sInk" data-s="ink"></label>
+                <label class="f">Names<input type="color" id="sAccent" data-s="accent"></label>
+                <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
+                <label class="f">Border 2<input type="color" id="sFrameB" data-s="frameB"></label>
+              </div>
+              <h3 class="sub-h">Border and details</h3>
+              <div class="row">
+                <label class="f">Border pattern<select id="sFrame" data-s="frame">
+                    <option value="none">None</option>
+                    <option value="solid">Solid band</option>
+                    <option value="double">Double line</option>
+                    <option value="diamonds">Diamonds</option>
+                    <option value="checks">Checks</option>
+                    <option value="dots">Dots</option>
+                    <option value="stripes">Diagonal stripes</option>
+                    <option value="deco">Deco lines</option>
+                    <option value="confetti">Confetti</option>
+                  </select></label>
+                <label class="f">Divider<select id="sOrn" data-s="ornament">
+                    <option value="rule">Thin line</option>
+                    <option value="dots">• • •</option>
+                    <option value="diamond">◆</option>
+                    <option value="flourish">❦</option>
+                    <option value="none">None</option>
+                  </select></label>
+                <label class="f">Corners <output id="oRadius"></output><input type="range" id="sRadius" data-s="radius"
+                    min="0" max="28" step="1"></label>
+              </div>
+              <label class="chk"><input type="checkbox" id="sLine" data-s="line"> Thin inner frame line (uses Border 1
+                colour)</label>
+              <h3 class="sub-h">Save this look</h3>
+              <div class="saveas">
+                <input id="tplName" placeholder="Name your template, e.g. Kampung Gold" maxlength="40">
+                <button type="button" class="btn" id="saveTpl">Save as my template</button>
+              </div>
+              <p class="hint">Saved templates appear under "Your templates" in all your invitations.</p>
             </div>
-            <div class="row">
-              <label class="f">Names size <output id="oNameSize"></output><input type="range" id="sNameSize"
-                  data-s="nameSize" min="28" max="64" step="1"></label>
-              <label class="f">Text size <output id="oBodySize"></output><input type="range" id="sBodySize"
-                  data-s="bodySize" min="13" max="20" step="1"></label>
-              <label class="f">Alignment<select id="sAlign" data-s="align">
-                  <option value="center">Centred</option>
-                  <option value="left">Left</option>
-                </select></label>
-            </div>
-            <h3 class="sub-h">Colours</h3>
-            <div class="row colors">
-              <label class="f">Card<input type="color" id="sBg" data-s="bg"></label>
-              <label class="f">Text<input type="color" id="sInk" data-s="ink"></label>
-              <label class="f">Names<input type="color" id="sAccent" data-s="accent"></label>
-              <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
-              <label class="f">Border 2<input type="color" id="sFrameB" data-s="frameB"></label>
-            </div>
-            <h3 class="sub-h">Border and details</h3>
-            <div class="row">
-              <label class="f">Border pattern<select id="sFrame" data-s="frame">
-                  <option value="none">None</option>
-                  <option value="solid">Solid band</option>
-                  <option value="double">Double line</option>
-                  <option value="diamonds">Diamonds</option>
-                  <option value="checks">Checks</option>
-                  <option value="dots">Dots</option>
-                  <option value="stripes">Diagonal stripes</option>
-                  <option value="deco">Deco lines</option>
-                  <option value="confetti">Confetti</option>
-                </select></label>
-              <label class="f">Divider<select id="sOrn" data-s="ornament">
-                  <option value="rule">Thin line</option>
-                  <option value="dots">• • •</option>
-                  <option value="diamond">◆</option>
-                  <option value="flourish">❦</option>
-                  <option value="none">None</option>
-                </select></label>
-              <label class="f">Corners <output id="oRadius"></output><input type="range" id="sRadius" data-s="radius"
-                  min="0" max="28" step="1"></label>
-            </div>
-            <label class="chk"><input type="checkbox" id="sLine" data-s="line"> Thin inner frame line (uses Border 1
-              colour)</label>
-            <h3 class="sub-h">Save this look</h3>
-            <div class="saveas">
-              <input id="tplName" placeholder="Name your template, e.g. Kampung Gold" maxlength="40">
-              <button type="button" class="btn" id="saveTpl">Save as my template</button>
-            </div>
-            <p class="hint">Saved templates appear under "Your templates" in all your invitations.</p>
           </fieldset>
 
-          <fieldset>
-            <legend id="namesLegend">The couple</legend>
-            <label class="f">Occasion<select id="occasion"></select></label>
-            <div class="row">
-              <label class="f"><span id="l1">First name</span><input id="name1" data-k="name1" maxlength="60"></label>
-              <label class="f"><span id="l2">Second name</span><input id="name2" data-k="name2" maxlength="60"></label>
+          <fieldset data-open-phone="1">
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec4"><span
+                  class="sec-title" id="namesLegend">The couple</span></button></legend>
+            <div class="sec-body" id="sec4">
+              <label class="f">Occasion<select id="occasion"></select></label>
+              <div class="row">
+                <label class="f"><span id="l1">First name</span><input id="name1" data-k="name1" maxlength="60"></label>
+                <label class="f"><span id="l2">Second name</span><input id="name2" data-k="name2"
+                    maxlength="60"></label>
+              </div>
+              <label class="f">Heading at the top<input id="headline" data-k="headline" maxlength="80"></label>
+              <label class="f">Message<textarea id="message" data-k="message" maxlength="400"></textarea></label>
             </div>
-            <label class="f">Heading at the top<input id="headline" data-k="headline" maxlength="80"></label>
-            <label class="f">Message<textarea id="message" data-k="message" maxlength="400"></textarea></label>
           </fieldset>
           <fieldset>
-            <legend>When</legend>
-            <div class="row">
-              <label class="f">Date<input type="date" id="date" data-k="date"></label>
-              <label class="f">Starts<input type="time" id="start" data-k="start"></label>
-              <label class="f">Ends<input type="time" id="end" data-k="end"></label>
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec5"><span
+                  class="sec-title">When</span></button></legend>
+            <div class="sec-body" id="sec5">
+              <div class="row">
+                <label class="f">Date<input type="date" id="date" data-k="date"></label>
+                <label class="f">Starts<input type="time" id="start" data-k="start"></label>
+                <label class="f">Ends<input type="time" id="end" data-k="end"></label>
+              </div>
+              <label class="f">Reply by<input type="date" id="rsvpBy" data-k="rsvpBy"></label>
             </div>
-            <label class="f">Reply by<input type="date" id="rsvpBy" data-k="rsvpBy"></label>
           </fieldset>
           <fieldset>
-            <legend>Where</legend>
-            <label class="f">Venue<input id="venue" data-k="venue" maxlength="120"></label>
-            <label class="f">Address<input id="address" data-k="address" maxlength="200"></label>
-            <label class="f">Dress code<input id="dress" data-k="dress" maxlength="80"></label>
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec6"><span
+                  class="sec-title">Where</span></button></legend>
+            <div class="sec-body" id="sec6">
+              <label class="f">Venue<input id="venue" data-k="venue" maxlength="120"></label>
+              <label class="f">Address<input id="address" data-k="address" maxlength="200"></label>
+              <label class="f">Dress code<input id="dress" data-k="dress" maxlength="80"></label>
+            </div>
           </fieldset>
         </div>
         <div class="preview" id="preview">
@@ -218,6 +242,11 @@
             </select></label>
           <button class="btn" type="submit">Add guest</button>
         </form>
+        <div class="contacts-row" id="contactsRow" hidden>
+          <button type="button" class="btn ghost" id="fromContacts">Add from contacts</button>
+          <span class="hint">Pick one or more people from your phone. They're added with the seats and side chosen
+            above.</span>
+        </div>
       </div>
       <div class="panel group-panel" id="groupPanel">
         <div class="group-head">
@@ -239,6 +268,7 @@
           </div>
           <div class="acts">
             <a class="btn sm" id="grpWa" href="#" target="_blank" rel="noopener">Share on WhatsApp</a>
+            <button type="button" class="btn sm ghost" id="grpShare" hidden>Share…</button>
             <button type="button" class="btn sm ghost" id="grpCopy">Copy message</button>
             <a class="btn sm ghost" id="grpPreview" href="#" target="_blank" rel="noopener">Preview</a>
             <button type="button" class="btn sm ghost" id="grpNew">Make a new link</button>
