@@ -27,7 +27,7 @@ export function toast(msg) {
   let t = $("toast");
   if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; t.setAttribute("role", "status"); document.body.append(t); }
   t.textContent = msg; t.hidden = false;
-  clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 2800);
+  clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), Math.max(2800, msg.length * 70));   // longer messages stay up longer
 }
 
 export function showSetupNotice() {

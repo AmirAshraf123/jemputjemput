@@ -71,11 +71,11 @@ export const PRESETS = [
    two:  the card shows two names joined by "&" (a couple); otherwise one main name with an optional smaller line under it. */
 export const OCCASIONS = {
   wedding: {
-    label: "Wedding", two: true, legend: "The couple", l1: "First name", l2: "Second name", ph1: "Your name", ph2: "Partner's name",
+    label: "Wedding", two: true, sides: true, legend: "The couple", l1: "First name", l2: "Second name", ph1: "Your name", ph2: "Partner's name",
     headline: "Together with their families", message: "We would be honoured to have you with us as we begin our life together.", hosts: "couple", template: "songket"
   },
   engagement: {
-    label: "Engagement", two: true, legend: "The couple", l1: "First name", l2: "Second name", ph1: "Your name", ph2: "Partner's name",
+    label: "Engagement", two: true, sides: true, legend: "The couple", l1: "First name", l2: "Second name", ph1: "Your name", ph2: "Partner's name",
     headline: "Please join us to celebrate the engagement of", message: "Come and share our joy as we take the next step together.", hosts: "couple", template: "rosegold"
   },
   birthday: {

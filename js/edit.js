@@ -20,7 +20,7 @@ window.addEventListener("hashchange", () => {
 let inv = null;            // { id, template, details, style, photo }
 let group = null;          // { token, enabled, max } or null when the database update hasn't been run
 let guests = [], myTpls = [];
-let filter = "all", confirmDel = null, confirmTpl = null, confirmPhoto = false;
+let filter = "all", groupFilter = "", confirmDel = null, confirmTpl = null, confirmPhoto = false;
 const canShare = typeof navigator.share === "function";   // the phone's own share sheet (most phones; some desktop browsers)
 let saveTimer = null, dirty = false, photoBusy = false, drag = null;
 
@@ -129,6 +129,36 @@ function fillOccasion() {
   $("l1").textContent = occ.l1; $("l2").textContent = occ.l2;
   $("name1").placeholder = occ.two ? "e.g. Hakim" : occ.ph1;
   $("name2").placeholder = occ.two ? "e.g. Nadia" : (occ.ex2 || "");
+  renderSideControls();
+}
+
+/* ---------- guest sides (weddings, engagements) or groups (everything else) ---------- */
+const SIDE_LABEL = { Groom: "Groom's side", Bride: "Bride's side", Both: "Both" };
+const usesSides = () => !!occasionOf(inv.details).sides;
+const sideText = (side) => (usesSides() ? SIDE_LABEL[side] || side : side) || "";
+function renderSideControls() {
+  const sides = usesSides();
+  $("sideLabel").textContent = sides ? "Side" : "Group (optional)";
+  $("gSide").hidden = !sides; $("gGroup").hidden = sides;
+  $("sideHead").textContent = sides ? "Side" : "Group";
+  const used = [...new Set(guests.map((g) => g.side).filter((x) => x && !(x in SIDE_LABEL)))];
+  $("groupSuggest").innerHTML = [...new Set([...used, "Family", "Friends", "Work", "Neighbours", "School"])]
+    .map((x) => `<option value="${esc(x)}"></option>`).join("");
+}
+const chosenSide = () => (usesSides() ? $("gSide").value : $("gGroup").value.trim().slice(0, 40));
+/** Adds guests. Before the guest-groups database update (supabase/003_guest_groups.sql), only Groom/Bride/Both
+ *  are accepted, so on that error the guests are saved without their group and the host is told how to fix it. */
+async function insertGuests(rows) {
+  let res = await sb.from("guests").insert(rows).select("*");
+  if (res.error && /guests_side_check|check constraint/i.test(res.error.message)) {
+    res = await sb.from("guests").insert(rows.map((r) => ({ ...r, side: "Both" }))).select("*");
+    res.withoutGroup = !res.error;
+  }
+  return res;
+}
+const NEEDS_UPDATE = " (without the group: to use groups, run supabase/003_guest_groups.sql in Supabase once)";
+function addedToast(names, withoutGroup) {
+  toast((names.length === 1 ? `Added ${names[0]}` : `Added ${names.length} guests`) + (withoutGroup ? NEEDS_UPDATE : ""));
 }
 $("occasion").addEventListener("change", (e) => {
   const prev = occasionOf(inv.details), next = OCCASIONS[e.target.value];
@@ -141,7 +171,7 @@ $("occasion").addEventListener("change", (e) => {
   // Likewise, switch to the occasion's template only if the old occasion's template was still untouched.
   const untouched = inv.template === prev.template && JSON.stringify(cleanStyle(baseStyleOf(inv.template))) === JSON.stringify(inv.style);
   if (untouched && presetById(next.template)) { inv.template = next.template; inv.style = cleanStyle(presetById(next.template).style); }
-  fillForm(); queueSave();
+  fillForm(); renderGuests(); queueSave();
   toast(`Set up for ${next.label.toLowerCase()}`);
 });
 function renderDesign() { $("designCard").innerHTML = cardHTML(inv); fitPreview(); }
@@ -418,7 +448,7 @@ function inviteText(g) {
 async function loadGuests() {
   const { data, error } = await sb.from("guests").select("*").eq("invitation_id", inv.id).order("created_at");
   if (error) { toast("Couldn't load guests: " + error.message); return; }
-  guests = data; renderGuests();
+  guests = data; renderSideControls(); renderGuests();
 }
 function subscribeGuests() {
   sb.channel("guests-" + inv.id)
@@ -445,7 +475,13 @@ function renderGuests() {
   $("dupChip").hidden = !dups.length;
   $("dupChip").textContent = `Possible duplicates (${dups.length})`;
   if (filter === "dup" && !dups.length) filter = "all";
-  const list = guests.filter((g) => filter === "all" || (filter === "dup" ? g.dup_reason : g.status === filter));
+  const groups = [...new Set(guests.map((g) => g.side).filter(Boolean))];
+  $("groupFilterWrap").hidden = groups.length < 2;
+  if (groupFilter && !groups.includes(groupFilter)) groupFilter = "";
+  $("groupFilterLabel").textContent = usesSides() ? "Show side" : "Show group";
+  $("groupFilter").innerHTML = `<option value="">${usesSides() ? "All sides" : "All groups"}</option>` +
+    groups.map((x) => `<option value="${esc(x)}" ${x === groupFilter ? "selected" : ""}>${esc(sideText(x))}</option>`).join("");
+  const list = guests.filter((g) => (filter === "all" || (filter === "dup" ? g.dup_reason : g.status === filter)) && (!groupFilter || g.side === groupFilter));
   for (const c of $("filters").querySelectorAll(".chip")) c.setAttribute("aria-pressed", String(c.dataset.f === filter));
   if (!list.length) {
     $("gBody").innerHTML = `<tr><td colspan="6" class="empty">${guests.length ? "No guests match this filter." : "No guests yet. Add the first household above."}</td></tr>`;
@@ -457,7 +493,7 @@ function renderGuests() {
     return `<tr>
       <td class="g-name"><b>${esc(g.name)}</b>${g.source === "group" ? ` <span class="tag">Group link</span>` : ""}${g.phone ? `<div class="sub">${esc(g.phone)}</div>` : ""}
         ${g.dup_reason ? `<div class="dup"><span>Possible duplicate: ${esc(g.dup_reason)}</span> <button class="linkbtn" data-act="notdup" data-id="${g.id}">Not a duplicate</button></div>` : ""}</td>
-      <td class="g-side" data-label="Side">${esc(g.side)}</td>
+      <td class="g-side${g.side ? "" : " is-empty"}" data-label="${usesSides() ? "Side" : "Group"}">${esc(sideText(g.side)) || "—"}</td>
       <td class="num g-seats" data-label="Seats">${g.status === "yes" ? `${g.coming} of ${g.seats}` : g.seats}</td>
       <td class="g-reply"><span class="pill ${esc(g.status)}">${label[g.status] || "Waiting"}</span></td>
       <td class="g-notes">${g.dietary ? `<div>${esc(g.dietary)}</div>` : ""}${g.note ? `<div class="sub">“${esc(g.note)}”</div>` : ""}</td>
@@ -470,6 +506,7 @@ function renderGuests() {
       </div></td></tr>`;
   }).join("");
 }
+$("groupFilter").addEventListener("change", (e) => { groupFilter = e.target.value; renderGuests(); });
 $("filters").addEventListener("click", (e) => {
   const b = e.target.closest(".chip"); if (!b) return;
   filter = b.dataset.f;
@@ -504,38 +541,40 @@ $("contactsRow").hidden = !canPickContacts;
 $("fromContacts").addEventListener("click", async () => {
   let picked;
   try { picked = await navigator.contacts.select(["name", "tel"], { multiple: true }); } catch { return; }
-  const seats = Math.round(clamp($("gSeats").value, 1, 50, 2)), side = $("gSide").value;
+  const seats = Math.round(clamp($("gSeats").value, 1, 50, 2)), side = chosenSide();
   const rows = (picked || []).map((c) => {
     const tel = String(c.tel?.[0] || "").trim().slice(0, 40);
     const name = String(c.name?.[0] || tel).trim().slice(0, 120);
     return name ? { invitation_id: inv.id, name, phone: tel, seats, side } : null;
   }).filter(Boolean);
   if (!rows.length) return;
-  const { data, error } = await sb.from("guests").insert(rows).select("*");
+  const { data, error, withoutGroup } = await insertGuests(rows);
   if (error) { toast("Couldn't add them: " + error.message); return; }
   for (const g of data || []) if (!guests.some((x) => x.id === g.id)) guests.push(g);
   renderGuests();
-  toast(rows.length === 1 ? `Added ${rows[0].name}` : `Added ${rows.length} guests`);
+  addedToast(rows.map((r) => r.name), withoutGroup);
 });
 
 $("addForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const row = {
     invitation_id: inv.id, name: $("gName").value.trim(), phone: $("gPhone").value.trim(),
-    seats: Math.round(clamp($("gSeats").value, 1, 50, 2)), side: $("gSide").value,
+    seats: Math.round(clamp($("gSeats").value, 1, 50, 2)), side: chosenSide(),
   };
   if (!row.name) return;
-  const { data, error } = await sb.from("guests").insert(row).select("*").single();
+  const { data: added, error, withoutGroup } = await insertGuests([row]);
   if (error) { toast("Couldn't add guest: " + error.message); return; }
+  const data = added[0];
   if (!guests.some((g) => g.id === data.id)) guests.push(data);
+  renderSideControls();   // a new group name becomes a suggestion for the next guest
   renderGuests();
   $("gName").value = ""; $("gPhone").value = ""; $("gSeats").value = 2; $("gName").focus();
-  toast(`Added ${row.name}`);
+  addedToast([row.name], withoutGroup);
 });
 $("csv").addEventListener("click", () => {
-  const head = ["Name", "Phone", "Side", "Seats", "Reply", "Coming", "Dietary", "Note", "Replied at", "Added by", "Possible duplicate", "Invitation link"];
+  const head = ["Name", "Phone", usesSides() ? "Side" : "Group", "Seats", "Reply", "Coming", "Dietary", "Note", "Replied at", "Added by", "Possible duplicate", "Invitation link"];
   const label = { yes: "Coming", no: "Can't make it", pending: "Waiting" };
-  const rows = guests.map((g) => [g.name, g.phone, g.side, g.seats, label[g.status], g.coming, g.dietary, g.note,
+  const rows = guests.map((g) => [g.name, g.phone, sideText(g.side), g.seats, label[g.status], g.coming, g.dietary, g.note,
   g.responded_at ? new Date(g.responded_at).toLocaleString("en-SG") : "", g.source === "group" ? "Group link" : "You",
   g.dup_reason || "", guestLink(g)]);
   const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");

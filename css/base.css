@@ -582,6 +582,19 @@ h3.sub-h {
   margin: 0
 }
 
+.group-filter select {
+  width: auto;
+  min-height: 38px;
+  padding: 6px 10px;
+  font-size: 14px
+}
+
+@media (max-width:640px) {
+  td.g-side.is-empty {
+    display: none
+  }
+}
+
 .contacts-row {
   display: flex;
   gap: 12px;

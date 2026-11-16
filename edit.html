@@ -235,11 +235,15 @@
           <label class="f">WhatsApp number<input id="gPhone" inputmode="tel" maxlength="40"
               placeholder="9123 4567"></label>
           <label class="f">Seats<input id="gSeats" type="number" min="1" max="50" value="2"></label>
-          <label class="f">Side<select id="gSide">
-              <option>Groom</option>
-              <option>Bride</option>
-              <option>Both</option>
-            </select></label>
+          <label class="f"><span id="sideLabel">Side</span>
+            <select id="gSide">
+              <option value="Groom">Groom's side</option>
+              <option value="Bride">Bride's side</option>
+              <option value="Both">Both</option>
+            </select>
+            <input id="gGroup" list="groupSuggest" maxlength="40" placeholder="e.g. Family" autocomplete="off" hidden>
+          </label>
+          <datalist id="groupSuggest"></datalist>
           <button class="btn" type="submit">Add guest</button>
         </form>
         <div class="contacts-row" id="contactsRow" hidden>
@@ -288,6 +292,8 @@
         <button class="chip" data-f="yes" aria-pressed="false">Coming</button>
         <button class="chip" data-f="no" aria-pressed="false">Can't make it</button>
         <button class="chip" data-f="dup" aria-pressed="false" id="dupChip" hidden>Possible duplicates</button>
+        <label class="group-filter" id="groupFilterWrap" hidden><span class="vh" id="groupFilterLabel">Show
+            side</span><select id="groupFilter"></select></label>
         <span class="spacer"></span>
         <span class="live" id="live"><i></i><span>Connecting…</span></span>
         <button class="btn sm ghost" id="csv">Download CSV</button>
@@ -297,7 +303,7 @@
           <thead>
             <tr>
               <th>Guest</th>
-              <th>Side</th>
+              <th id="sideHead">Side</th>
               <th>Seats</th>
               <th>Reply</th>
               <th>Notes</th>
