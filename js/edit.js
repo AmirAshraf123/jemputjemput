@@ -157,14 +157,13 @@ $("addExtra").addEventListener("click", () => {
   $("xText" + (inv.details.extras.length - 1))?.focus();
 });
 
+const GRIP = '<svg viewBox="0 0 20 20" aria-hidden="true"><g fill="currentColor"><circle cx="7" cy="5" r="1.6"/><circle cx="13" cy="5" r="1.6"/><circle cx="7" cy="10" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="13" cy="15" r="1.6"/></g></svg>';
 function renderSectionList() {
   const { order, hidden } = inv.details;
-  $("secList").innerHTML = order.map((k, i) => `<li class="sec-item${hidden.includes(k) ? " is-hidden" : ""}">
+  $("secList").innerHTML = order.map((k) => `<li class="sec-item${hidden.includes(k) ? " is-hidden" : ""}" data-k="${k}">
+      <button type="button" class="drag-handle" id="drag-${k}" data-k="${k}" aria-label="Move ${esc(SECTIONS[k])}. Drag, or use the up and down arrow keys" aria-describedby="secHint">${GRIP}</button>
       <label class="chk"><input type="checkbox" data-show="${k}" ${hidden.includes(k) ? "" : "checked"}> ${esc(SECTIONS[k])}</label>
-      <span class="acts">
-        <button type="button" class="btn sm ghost" id="up-${k}" data-move="${k}" data-dir="-1" ${i === 0 ? "disabled" : ""} aria-label="Move ${esc(SECTIONS[k])} up">Up</button>
-        <button type="button" class="btn sm ghost" id="down-${k}" data-move="${k}" data-dir="1" ${i === order.length - 1 ? "disabled" : ""} aria-label="Move ${esc(SECTIONS[k])} down">Down</button>
-      </span></li>`).join("");
+    </li>`).join("");
 }
 $("secList").addEventListener("change", (e) => {
   const k = e.target.dataset.show; if (!k) return;
@@ -172,15 +171,84 @@ $("secList").addEventListener("change", (e) => {
   inv.details = cleanDetails({ ...inv.details, hidden }); renderSectionList(); queueSave();
   document.querySelector(`[data-show="${k}"]`)?.focus();
 });
-$("secList").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-move]"); if (!b) return;
-  const order = [...inv.details.order], i = order.indexOf(b.dataset.move), j = i + +b.dataset.dir;
-  if (j < 0 || j >= order.length) return;
-  [order[i], order[j]] = [order[j], order[i]];
-  inv.details = cleanDetails({ ...inv.details, order }); renderSectionList(); queueSave();
-  const again = $(`${b.dataset.dir === "-1" ? "up" : "down"}-${b.dataset.move}`);
-  (again && !again.disabled ? again : $(`${b.dataset.dir === "-1" ? "down" : "up"}-${b.dataset.move}`))?.focus();   // keep focus on the item that moved
+function setOrder(order, save) {
+  inv.details = cleanDetails({ ...inv.details, order });
+  renderDesign();
+  if (save) { renderSectionList(); queueSave(); }
+}
+
+/* Drag to reorder: works with a mouse or a finger (pointer events, so phones work too).
+   The dragged row follows the pointer, the others slide out of the way, and the preview updates as you go. */
+let sdrag = null;
+$("secList").addEventListener("pointerdown", (e) => {
+  const handle = e.target.closest(".drag-handle"); if (!handle || e.button > 0) return;
+  e.preventDefault();
+  const items = [...$("secList").children];
+  const li = handle.closest("li"), from = items.indexOf(li);
+  const rects = items.map((x) => x.getBoundingClientRect());
+  const step = rects.length > 1 ? rects[1].top - rects[0].top : rects[0].height;
+  handle.setPointerCapture(e.pointerId);
+  li.classList.add("dragging"); $("secList").classList.add("is-dragging");
+  sdrag = { handle, li, items, from, to: from, y: e.clientY, raf: 0, startY: e.clientY, scrollY: window.scrollY, step, order: [...inv.details.order] };
 });
+$("secList").addEventListener("pointermove", (e) => {
+  if (!sdrag) return;
+  sdrag.y = e.clientY; dragTo();
+  if (!sdrag.raf) sdrag.raf = requestAnimationFrame(edgeScroll);
+});
+// Keep the page scrolling while the finger rests near the top or bottom.
+// On phones the preview is pinned at the top and the tab bar at the bottom, so measure from those.
+function edgeScroll() {
+  if (!sdrag) return;
+  const top = phone.matches ? $("preview").getBoundingClientRect().bottom : 0;
+  const bar = phone.matches ? ($("tabs")?.getBoundingClientRect().top || innerHeight) : innerHeight;
+  const edge = 60, y = sdrag.y;
+  const v = y < top + edge ? -Math.ceil((top + edge - y) / 6) : y > Math.min(bar, innerHeight) - edge ? Math.ceil((y - Math.min(bar, innerHeight) + edge) / 6) : 0;
+  if (v) { const before = window.scrollY; window.scrollBy(0, Math.max(-14, Math.min(14, v))); if (window.scrollY !== before) dragTo(); }
+  sdrag.raf = requestAnimationFrame(edgeScroll);
+}
+function dragTo() {
+  const dy = sdrag.y - sdrag.startY + (window.scrollY - sdrag.scrollY);
+  sdrag.li.style.transform = `translateY(${dy}px)`;
+  const to = Math.max(0, Math.min(sdrag.items.length - 1, sdrag.from + Math.round(dy / sdrag.step)));
+  if (to === sdrag.to) return;
+  sdrag.to = to;
+  sdrag.items.forEach((x, i) => {
+    if (x === sdrag.li) return;
+    const shift = sdrag.from < to ? (i > sdrag.from && i <= to ? -1 : 0) : (i < sdrag.from && i >= to ? 1 : 0);
+    x.style.transform = shift ? `translateY(${shift * sdrag.step}px)` : "";
+  });
+  const order = [...sdrag.order]; const [k] = order.splice(sdrag.from, 1); order.splice(to, 0, k);
+  setOrder(order, false);   // live preview while dragging
+}
+function endSectionDrag(cancel) {
+  if (!sdrag) return;
+  const { from, to, order: original, li, raf } = sdrag, k = li.dataset.k;
+  cancelAnimationFrame(raf); sdrag = null;
+  $("secList").classList.remove("is-dragging");
+  if (cancel || from === to) { setOrder(original, false); renderSectionList(); }
+  else {
+    const order = [...original]; order.splice(from, 1); order.splice(to, 0, k);
+    setOrder(order, true);
+    announce(`${SECTIONS[k]} moved to position ${to + 1} of ${order.length}`);
+  }
+  $(`drag-${k}`)?.focus({ preventScroll: true });
+}
+$("secList").addEventListener("pointerup", () => endSectionDrag(false));
+$("secList").addEventListener("pointercancel", () => endSectionDrag(true));
+// Keyboard: focus a handle and press the up or down arrow.
+$("secList").addEventListener("keydown", (e) => {
+  const handle = e.target.closest(".drag-handle");
+  if (!handle || !["ArrowUp", "ArrowDown"].includes(e.key)) return;
+  e.preventDefault();
+  const order = [...inv.details.order], k = handle.dataset.k, i = order.indexOf(k), j = i + (e.key === "ArrowUp" ? -1 : 1);
+  if (j < 0 || j >= order.length) return;
+  order.splice(i, 1); order.splice(j, 0, k);
+  setOrder(order, true);
+  $(`drag-${k}`)?.focus();
+  announce(`${SECTIONS[k]} moved to position ${j + 1} of ${order.length}`);
+});
+function announce(msg) { $("secLive").textContent = msg; }
 
 function fillAlt() {
   const a = ALT_SCRIPTS[inv.details.altScript];
