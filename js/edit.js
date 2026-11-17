@@ -1,9 +1,11 @@
 // The invitation editor: design, photo, templates and guest list.
 import { sb, requireUser, signOut, $, toast, isConfigured, showSetupNotice } from "./sb.js";
+import { setupFreeDesign } from "./freedesign.js";
+import { FALLS, playFall, bloom } from "./effects.js";
 import {
   esc, clamp, FONTS, PRESETS, presetById, cleanStyle, cleanPhoto, cleanDetails, imgCSS, SHAPE_DEF,
-  cardHTML, thumbHTML, LANGS, TR_FIELDS, translated, langSwitchHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor, ensureFonts,
-  CORNERS, TEXTURES, SHAPES, SECTIONS, OPENINGS, readabilityIssues, musicUrl, eventTitle, fontCSSUrl, cardFontKeys,
+  cardHTML, thumbHTML, FOILS, FILTERS, LANGS, TR_FIELDS, translated, langSwitchHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor, ensureFonts,
+  CORNERS, TEXTURES, SHAPES, SECTIONS, OPENINGS, readabilityIssues, musicUrl, mix, contrast, fixColor, eventTitle, fontCSSUrl, cardFontKeys,
 } from "./card.js";
 
 if (!isConfigured) showSetupNotice();
@@ -20,10 +22,12 @@ window.addEventListener("hashchange", () => {
 
 let inv = null;            // { id, template, details, style, photo }
 let group = null;          // { token, enabled, max } or null when the database update hasn't been run
-let guests = [], myTpls = [];
+let guests = [], myTpls = [], pubTpls = [];
+let shareReady = true;     // false until the community templates database update (005) has been run
 let filter = "all", groupFilter = "", confirmDel = null, confirmTpl = null, confirmPhoto = false;
 const canShare = typeof navigator.share === "function";   // the phone's own share sheet (most phones; some desktop browsers)
 let saveTimer = null, dirty = false, photoBusy = false, drag = null;
+let fd = null;             // free design (stickers, pictures and text placed anywhere)
 
 /* ---------- load (called at the bottom, once everything below is defined) ---------- */
 async function init() {
@@ -44,7 +48,8 @@ async function init() {
     inv = { id: data.id, template: data.template, details: cleanDetails(data.details), style: cleanStyle(data.style, base), photo: cleanPhoto(data.photo) };
     group = data && "group_token" in data ? { token: data.group_token, enabled: !!data.group_enabled, max: data.group_max_seats || 2 } : null;
     setupFontSelects(); setupGroup(); setupOccasion(); setupCustomise();
-    fillForm(); renderDesign(); showTab(hashTab === "guests" ? "guests" : "design");
+    fd = setupFreeDesign(fdContext);
+    fillForm(); renderDesign(); fd.init(); resetHistory(); showTab(hashTab === "guests" ? "guests" : "design");
     loadTemplates(); loadGuests(); subscribeGuests();
   }
 }
@@ -65,7 +70,7 @@ $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button"
 
 /* ---------- saving ---------- */
 function queueSave() {
-  dirty = true; renderDesign();
+  dirty = true; renderDesign(); record();
   $("saveState").textContent = "Saving…";
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
@@ -82,18 +87,22 @@ window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault()
 function setupFontSelects() {
   ensureFonts(Object.keys(FONTS));   // the font menus preview every font
   const opts = Object.entries(FONTS).map(([k, v]) => `<option value="${k}">${esc(v[0])}</option>`).join("");
-  for (const sel of [$("sNameFont"), $("sBodyFont")]) {
+  for (const sel of [$("sBodyFont")]) {
     sel.innerHTML = opts;
     for (const o of sel.options) { o.style.fontFamily = FONTS[o.value][1]; o.style.fontStyle = FONTS[o.value][2] || "normal"; }
   }
 }
 const initials = () => initialsFor(inv.details);
+// the look of a style without its free-design items, for "has this been customised?"
+const lookOf = (st) => JSON.stringify({ ...st, layers: undefined });
 function baseStyleOf(tid) {
   if (tid?.startsWith("mine:")) { const t = myTpls.find((x) => x.id === tid.slice(5)); if (t) return t.style; }
+  if (tid?.startsWith("pub:")) { const t = pubTpls.find((x) => x.id === tid.slice(4)); if (t) return t.style; }
   return (presetById(tid) || PRESETS[0]).style;
 }
 function baseName(tid) {
   if (tid?.startsWith("mine:")) return myTpls.find((x) => x.id === tid.slice(5))?.name || "your template";
+  if (tid?.startsWith("pub:")) return pubTpls.find((x) => x.id === tid.slice(4))?.name || "a community template";
   return presetById(tid)?.name || "Songket";
 }
 function renderTemplates() {
@@ -101,8 +110,11 @@ function renderTemplates() {
   $("tpls").innerHTML = PRESETS.map((p) => `<button type="button" class="tpl" data-t="${p.id}" aria-pressed="${inv.template === p.id}">${thumbHTML(p.style, p.name, ini)}</button>`).join("");
   $("mineWrap").hidden = !myTpls.length;
   $("mine").innerHTML = myTpls.map((t) => `<div class="tpl" role="button" tabindex="0" data-t="mine:${t.id}" aria-pressed="${inv.template === "mine:" + t.id}">${thumbHTML(t.style, t.name, ini)}
-    <button type="button" class="x${confirmTpl === t.id ? " armed" : ""}" data-del="${t.id}" aria-label="Delete ${esc(t.name)}">${confirmTpl === t.id ? "Delete?" : "×"}</button></div>`).join("");
-  const changed = JSON.stringify(cleanStyle(baseStyleOf(inv.template))) !== JSON.stringify(inv.style);
+    <button type="button" class="x${confirmTpl === t.id ? " armed" : ""}" data-del="${t.id}" aria-label="Delete ${esc(t.name)}">${confirmTpl === t.id ? "Delete?" : "×"}</button>
+    ${shareReady ? `<button type="button" class="share-t" data-share="${t.id}" aria-pressed="${!!t.shared}" aria-label="${t.shared ? "Stop sharing" : "Share"} ${esc(t.name)} with everyone">${t.shared ? "Shared" : "Share"}</button>` : ""}</div>`).join("");
+  $("pubWrap").hidden = !pubTpls.length;
+  $("pub").innerHTML = pubTpls.map((t) => `<button type="button" class="tpl pub" data-t="pub:${t.id}" aria-pressed="${inv.template === "pub:" + t.id}">${thumbHTML(t.style, t.name, ini)}<span class="by">by ${esc(t.author || "a Jemput designer")}</span></button>`).join("");
+  const changed = lookOf(cleanStyle(baseStyleOf(inv.template))) !== lookOf(inv.style);
   $("tplState").innerHTML = changed ? `<span class="tag">Customised from ${esc(baseName(inv.template))}</span>` : "";
   $("resetStyle").disabled = !changed;
 }
@@ -110,11 +122,17 @@ function fillStyle() {
   const s = inv.style;
   for (const el of document.querySelectorAll("#styleBox [data-s]")) {
     if (el === document.activeElement && el.type !== "range") continue;
-    if (el.type === "checkbox") el.checked = !!s[el.dataset.s]; else el.value = s[el.dataset.s];
+    if (el.type === "checkbox") el.checked = !!s[el.dataset.s];
+    else if (el.type === "color" && !s[el.dataset.s]) el.value = el.dataset.follow === "accent" ? s.accent : s.ink;   // follows the card
+    else el.value = s[el.dataset.s];
+    if (el.classList.contains("part-color")) el.classList.toggle("own", !!s[el.dataset.s] && !["accent", "headColor"].includes(el.dataset.s));
   }
-  $("oHeadSpacing").textContent = s.headSpacing ? (s.headSpacing / 100).toFixed(2) + " em" : "none";
+  const out = (id, t) => { if ($(id)) $(id).textContent = t; };
+  out("oHeadSpacing", s.headSpacing ? (s.headSpacing / 100).toFixed(2) + " em" : "none");
   $("bg2Wrap").hidden = s.texture !== "gradient";
-  $("oNameSize").textContent = s.nameSize + "px"; $("oBodySize").textContent = s.bodySize + "px"; $("oRadius").textContent = s.radius + "px";
+  $("cornerColorWrap").hidden = s.corners === "none";
+  out("oNameSize", s.nameSize + "px"); out("oBodySize", s.bodySize + "px"); out("oRadius", s.radius + "px");
+  document.querySelectorAll("[data-follow-reset]").forEach((b) => { b.hidden = !s[b.dataset.followReset]; });
 }
 function fillForm() {
   for (const el of document.querySelectorAll("#designForm [data-k]")) if (el !== document.activeElement) el.value = inv.details[el.dataset.k] ?? "";
@@ -125,9 +143,9 @@ function fillForm() {
 const options = (obj) => Object.entries(obj).map(([k, v]) => `<option value="${k}">${esc(v.label || v)}</option>`).join("");
 function setupCustomise() {
   $("sCorners").innerHTML = options(CORNERS); $("sTexture").innerHTML = options(TEXTURES); $("sShape").innerHTML = options(SHAPES);
-  $("lang1").innerHTML = options(LANGS); $("opening").innerHTML = options(OPENINGS);
+  $("lang1").innerHTML = options(LANGS); $("opening").innerHTML = options(OPENINGS); $("fall").innerHTML = options(FALLS);
 }
-function fillCustomise() { renderExtras(); renderSectionList(); fillLangs(); fillMusic(); }
+function fillCustomise() { renderExtras(); renderSectionList(); fillLangs(); fillMusic(); $("bloom").checked = inv.details.bloom === "1"; }
 
 function renderExtras() {
   const list = inv.details.extras;
@@ -158,18 +176,69 @@ $("addExtra").addEventListener("click", () => {
 });
 
 const GRIP = '<svg viewBox="0 0 20 20" aria-hidden="true"><g fill="currentColor"><circle cx="7" cy="5" r="1.6"/><circle cx="13" cy="5" r="1.6"/><circle cx="7" cy="10" r="1.6"/><circle cx="13" cy="10" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="13" cy="15" r="1.6"/></g></svg>';
+/* Each part's own settings: a colour swatch on the row, and a "Style" panel with its font and anything else it has. */
+const PART_UI = {
+  headline: {
+    color: "headColor", font: "headFont", more: () => `
+      <div class="row">
+        <label class="f">Letters<select data-s="headCase"><option value="upper">CAPITALS</option><option value="normal">As typed</option></select></label>
+        <label class="f">Letter spacing <output id="oHeadSpacing"></output><input type="range" data-s="headSpacing" min="0" max="40" step="1"></label>
+      </div>
+      <label class="chk"><input type="checkbox" data-s="headItalic"> Italic</label>` },
+  names: {
+    color: "accent", font: "nameFont", noSame: true, more: () => `
+      <div class="row">
+        <label class="f">Size <output id="oNameSize"></output><input type="range" data-s="nameSize" min="28" max="64" step="1"></label>
+        <label class="f">Finish<select data-s="namesFoil">${Object.entries(FOILS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("")}</select></label>
+      </div>` },
+  message: { color: "msgColor", font: "msgFont" },
+  divider: {
+    color: "divColor", follow: "accent", more: () => `
+      <label class="f">Style<select data-s="ornament"><option value="rule">Thin line</option><option value="dots">• • •</option><option value="diamond">◆</option>
+        <option value="flourish">❦</option><option value="none">None</option></select></label>` },
+  when: { color: "whenColor", font: "whenFont" },
+  where: { color: "whereColor", font: "whereFont" },
+  dress: { color: "dressColor", font: "dressFont" },
+  extras: { color: "extrasColor", font: "extrasFont", hint: "The times use the names colour." },
+};
+const openParts = new Set();   // which "Style" panels are open, so they stay open when the list redraws
+const fontOptions = (same) => (same ? `<option value="">Same as text font</option>` : "") + Object.entries(FONTS).map(([k, v]) => `<option value="${k}" style="font-family:${esc(v[1])};font-style:${v[2] || "normal"}">${esc(v[0])}</option>`).join("");
 function renderSectionList() {
   const { order, hidden } = inv.details;
-  $("secList").innerHTML = order.map((k) => `<li class="sec-item${hidden.includes(k) ? " is-hidden" : ""}" data-k="${k}">
-      <button type="button" class="drag-handle" id="drag-${k}" data-k="${k}" aria-label="Move ${esc(SECTIONS[k])}. Drag, or use the up and down arrow keys" aria-describedby="secHint">${GRIP}</button>
-      <label class="chk"><input type="checkbox" data-show="${k}" ${hidden.includes(k) ? "" : "checked"}> ${esc(SECTIONS[k])}</label>
-    </li>`).join("");
+  $("secList").innerHTML = order.map((k) => {
+    const ui = PART_UI[k], name = esc(SECTIONS[k]), open = openParts.has(k);
+    const panel = `<div class="part-opts" id="opts-${k}"${open ? "" : " hidden"}>
+        ${ui.font ? `<label class="f">Font<select data-s="${ui.font}">${fontOptions(!ui.noSame)}</select></label>` : ""}
+        ${ui.more ? ui.more() : ""}
+        ${ui.color !== "accent" && ui.color !== "headColor" ? `<button type="button" class="btn sm ghost" data-follow-reset="${ui.color}">Use the card's ${ui.follow === "accent" ? "names" : "text"} colour</button>` : ""}
+        ${ui.hint ? `<p class="hint">${esc(ui.hint)}</p>` : ""}
+      </div>`;
+    return `<li class="sec-item${hidden.includes(k) ? " is-hidden" : ""}" data-k="${k}">
+      <div class="sec-row">
+        <button type="button" class="drag-handle" id="drag-${k}" data-k="${k}" aria-label="Move ${name}. Drag, or use the up and down arrow keys" aria-describedby="secHint">${GRIP}</button>
+        <label class="chk"><input type="checkbox" data-show="${k}" ${hidden.includes(k) ? "" : "checked"}> ${name}</label>
+        <input type="color" class="part-color" data-s="${ui.color}"${ui.follow ? ` data-follow="${ui.follow}"` : ""} aria-label="${name} colour">
+        <button type="button" class="btn sm ghost part-more" data-more="${k}" aria-expanded="${open}" aria-controls="opts-${k}" aria-label="${name} style">Style</button>
+      </div>${panel}
+    </li>`;
+  }).join("");
+  fillStyle();
 }
 $("secList").addEventListener("change", (e) => {
   const k = e.target.dataset.show; if (!k) return;
   const hidden = e.target.checked ? inv.details.hidden.filter((x) => x !== k) : [...inv.details.hidden, k];
   inv.details = cleanDetails({ ...inv.details, hidden }); renderSectionList(); queueSave();
   document.querySelector(`[data-show="${k}"]`)?.focus();
+});
+$("secList").addEventListener("click", (e) => {
+  const more = e.target.closest("[data-more]");
+  if (more) {
+    const k = more.dataset.more, open = !openParts.has(k);
+    open ? openParts.add(k) : openParts.delete(k);
+    more.setAttribute("aria-expanded", open); $("opts-" + k).hidden = !open; return;
+  }
+  const r = e.target.closest("[data-follow-reset]");
+  if (r) { inv.style = cleanStyle({ ...inv.style, [r.dataset.followReset]: "" }, inv.style); fillStyle(); renderTemplates(); queueSave(); }
 });
 function setOrder(order, save) {
   inv.details = cleanDetails({ ...inv.details, order });
@@ -185,11 +254,13 @@ $("secList").addEventListener("pointerdown", (e) => {
   e.preventDefault();
   const items = [...$("secList").children];
   const li = handle.closest("li"), from = items.indexOf(li);
+  // rows can be different heights (a "Style" panel may be open), so remember where each one starts
   const rects = items.map((x) => x.getBoundingClientRect());
-  const step = rects.length > 1 ? rects[1].top - rects[0].top : rects[0].height;
+  const gap = rects.length > 1 ? rects[1].top - rects[0].bottom : 6;
+  const mids = rects.map((r) => (r.top + r.bottom) / 2), step = rects[from].height + gap;
   handle.setPointerCapture(e.pointerId);
   li.classList.add("dragging"); $("secList").classList.add("is-dragging");
-  sdrag = { handle, li, items, from, to: from, y: e.clientY, raf: 0, startY: e.clientY, scrollY: window.scrollY, step, order: [...inv.details.order] };
+  sdrag = { handle, li, items, from, to: from, y: e.clientY, raf: 0, startY: e.clientY, scrollY: window.scrollY, step, mids, order: [...inv.details.order] };
 });
 $("secList").addEventListener("pointermove", (e) => {
   if (!sdrag) return;
@@ -210,7 +281,8 @@ function edgeScroll() {
 function dragTo() {
   const dy = sdrag.y - sdrag.startY + (window.scrollY - sdrag.scrollY);
   sdrag.li.style.transform = `translateY(${dy}px)`;
-  const to = Math.max(0, Math.min(sdrag.items.length - 1, sdrag.from + Math.round(dy / sdrag.step)));
+  const centre = sdrag.mids[sdrag.from] + dy;
+  const to = sdrag.mids.filter((m, i) => i !== sdrag.from && m < centre).length;
   if (to === sdrag.to) return;
   sdrag.to = to;
   sdrag.items.forEach((x, i) => {
@@ -470,12 +542,12 @@ $("occasion").addEventListener("change", (e) => {
   if (!d.message.trim() || d.message === prev.message) d.message = next.message;
   inv.details = cleanDetails(d);
   // Likewise, switch to the occasion's template only if the old occasion's template was still untouched.
-  const untouched = inv.template === prev.template && JSON.stringify(cleanStyle(baseStyleOf(inv.template))) === JSON.stringify(inv.style);
-  if (untouched && presetById(next.template)) { inv.template = next.template; inv.style = cleanStyle(presetById(next.template).style); }
+  const untouched = inv.template === prev.template && lookOf(cleanStyle(baseStyleOf(inv.template))) === lookOf(inv.style);
+  if (untouched && presetById(next.template)) { inv.template = next.template; inv.style = cleanStyle({ ...presetById(next.template).style, layers: inv.style.layers }); }
   fillForm(); renderGuests(); queueSave();
   toast(`Set up for ${next.label.toLowerCase()}`);
 });
-function renderDesign() { $("designCard").innerHTML = cardHTML(inv, null, curLang()); fitPreview(); renderReadability(); renderTr(); }
+function renderDesign() { $("designCard").innerHTML = cardHTML(inv, null, curLang()); fitPreview(); renderReadability(); renderTr(); fd?.decorate(); fd?.refresh(); }
 
 /* ---------- phone preview: pinned, scaled to fit, can be hidden or opened full size ---------- */
 const phone = matchMedia("(max-width: 880px)");
@@ -535,40 +607,87 @@ async function embeddedFontCSS(text) {
   }
   return out.join("\n");
 }
-async function saveImage(btn) {
-  const label = btn.textContent;
-  btn.disabled = true; btn.textContent = "Preparing…";
+// Draws the card off-screen at a given width in pixels, with its fonts and pictures, and returns a canvas.
+async function renderCardCanvas(widthPx) {
   const host = document.createElement("div");
   host.className = "export-host";
   try {
-    const { toBlob } = await import(IMAGE_LIB);
+    const { toCanvas } = await import(IMAGE_LIB);
     host.innerHTML = cardHTML(inv, null, curLang());
     document.body.append(host);
     await document.fonts.ready;
     await Promise.all([...host.querySelectorAll("img")].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
     const node = host.firstElementChild;
     const fontEmbedCSS = await embeddedFontCSS(host.textContent + "&");
-    const blob = await toBlob(node, { pixelRatio: 1080 / node.offsetWidth, cacheBust: true, fontEmbedCSS });
+    return await toCanvas(node, { pixelRatio: widthPx / node.offsetWidth, cacheBust: true, fontEmbedCSS });
+  } finally { host.remove(); }
+}
+const fileBase = () => eventTitle(inv.details).replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, "-") || "invitation";
+async function deliver(blob, name, type, savedMsg) {
+  const file = new File([blob], name, { type });
+  if (phone.matches && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: eventTitle(inv.details) }).catch(() => { });
+  } else {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast(savedMsg);
+  }
+}
+async function saveImage(btn) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Preparing…";
+  try {
+    const canvas = await renderCardCanvas(1080);
+    const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
     if (!blob) throw new Error("empty image");
-    const name = (eventTitle(inv.details).replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, "-") || "invitation") + ".png";
-    const file = new File([blob], name, { type: "image/png" });
-    if (phone.matches && navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: eventTitle(inv.details) }).catch(() => { });
-    } else {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-      toast("Image saved to your downloads");
-    }
+    await deliver(blob, fileBase() + ".png", "image/png", "Image saved to your downloads");
   } catch (err) {
     console.error(err);
     toast("Couldn't create the image. Check your connection and try again, or take a screenshot of the full-size preview.");
-  } finally {
-    host.remove(); btn.disabled = false; btn.textContent = label;
-  }
+  } finally { btn.disabled = false; btn.textContent = label; }
+}
+
+/* Print-ready PDF: the card 127 mm (5 inches) wide at 300 dpi, with 3 mm bleed on every side (the edge colours
+   carried outwards, so nothing white shows if the cut is slightly off) and crop marks showing where to cut. */
+const PDF_LIB = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm";
+const TRIM_W = 127, BLEED = 3, SLUG = 8;
+async function savePDF(btn) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Preparing…";
+  try {
+    const card = await renderCardCanvas(1500);   // 1500 px across 127 mm ≈ 300 dpi
+    const W = card.width, H = card.height, pxPerMm = W / TRIM_W, b = Math.round(BLEED * pxPerMm);
+    const c = document.createElement("canvas"); c.width = W + 2 * b; c.height = H + 2 * b;
+    const g = c.getContext("2d");
+    g.fillStyle = inv.style.frame === "none" ? inv.style.bg : inv.style.frameA; g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(card, b, b);
+    // stretch the outermost row and column of pixels into the bleed
+    g.drawImage(card, 0, 0, 1, H, 0, b, b, H); g.drawImage(card, W - 1, 0, 1, H, W + b, b, b, H);
+    g.drawImage(card, 0, 0, W, 1, b, 0, W, b); g.drawImage(card, 0, H - 1, W, 1, b, H + b, W, b);
+    for (const [sx, sy, dx, dy] of [[0, 0, 0, 0], [W - 1, 0, W + b, 0], [0, H - 1, 0, H + b], [W - 1, H - 1, W + b, H + b]]) g.drawImage(card, sx, sy, 1, 1, dx, dy, b, b);
+    const trimH = H / pxPerMm, pw = TRIM_W + 2 * (BLEED + SLUG), ph = trimH + 2 * (BLEED + SLUG);
+    const { jsPDF } = await import(PDF_LIB);
+    const pdf = new jsPDF({ unit: "mm", format: [pw, ph], orientation: pw > ph ? "landscape" : "portrait", compress: true });
+    pdf.addImage(c.toDataURL("image/jpeg", 0.95), "JPEG", SLUG, SLUG, TRIM_W + 2 * BLEED, trimH + 2 * BLEED);
+    // crop marks: short lines in the margin, in line with the trim edges, stopping before the bleed
+    pdf.setLineWidth(0.25); pdf.setDrawColor(0);
+    const x0 = SLUG + BLEED, x1 = x0 + TRIM_W, y0 = SLUG + BLEED, y1 = y0 + trimH, gap = BLEED + 1, len = SLUG - 2;
+    for (const x of [x0, x1]) { pdf.line(x, y0 - gap - len, x, y0 - gap); pdf.line(x, y1 + gap, x, y1 + gap + len); }
+    for (const y of [y0, y1]) { pdf.line(x0 - gap - len, y, x0 - gap, y); pdf.line(x1 + gap, y, x1 + gap + len, y); }
+    pdf.setFontSize(6); pdf.setTextColor(90);
+    pdf.text(`${eventTitle(inv.details)} · trim ${TRIM_W} × ${trimH.toFixed(1)} mm · ${BLEED} mm bleed · made with Jemput`, pw / 2, ph - 2.5, { align: "center" });
+    pdf.setProperties({ title: eventTitle(inv.details), creator: "Jemput" });
+    await deliver(pdf.output("blob"), fileBase() + "-print.pdf", "application/pdf", "Print PDF saved to your downloads");
+  } catch (err) {
+    console.error(err);
+    toast("Couldn't create the PDF. Check your connection and try again.");
+  } finally { btn.disabled = false; btn.textContent = label; }
 }
 $("pvDownload").addEventListener("click", (e) => saveImage(e.currentTarget));
 $("pvFullDownload").addEventListener("click", (e) => saveImage(e.currentTarget));
+$("pvPdf").addEventListener("click", (e) => savePDF(e.currentTarget));
+$("pvFullPdf").addEventListener("click", (e) => savePDF(e.currentTarget));
 $("pvFull").addEventListener("click", openFull);
 $("pvClose").addEventListener("click", closeFull);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("pvFullView").hidden) closeFull(); });
@@ -602,7 +721,12 @@ $("designForm").addEventListener("input", (e) => {
 });
 
 /* ---------- templates ---------- */
-function chooseTemplate(tid) { inv.template = tid; inv.style = cleanStyle(baseStyleOf(tid)); confirmTpl = null; fillStyle(); renderTemplates(); queueSave(); }
+// A template's look replaces the card's look, but stickers and text boxes stay unless the template brings its own.
+function chooseTemplate(tid) {
+  const base = cleanStyle(baseStyleOf(tid));
+  inv.template = tid; inv.style = cleanStyle({ ...base, layers: base.layers.length ? base.layers : inv.style.layers });
+  confirmTpl = null; fillStyle(); renderTemplates(); queueSave();
+}
 $("tpls").addEventListener("click", (e) => { const b = e.target.closest(".tpl"); if (b) chooseTemplate(b.dataset.t); });
 $("mine").addEventListener("click", async (e) => {
   const x = e.target.closest(".x");
@@ -615,6 +739,8 @@ $("mine").addEventListener("click", async (e) => {
     myTpls = myTpls.filter((t) => t.id !== id); renderTemplates(); toast("Template deleted");
     return;
   }
+  const sh = e.target.closest("[data-share]");
+  if (sh) { const t = myTpls.find((x) => x.id === sh.dataset.share); if (t && await setShared(t, !t.shared)) { renderTemplates(); $("mine").querySelector(`[data-share="${t.id}"]`)?.focus(); } return; }
   const b = e.target.closest(".tpl"); if (b) chooseTemplate(b.dataset.t);
 });
 $("mine").addEventListener("keydown", (e) => {
@@ -622,18 +748,41 @@ $("mine").addEventListener("keydown", (e) => {
 });
 $("resetStyle").addEventListener("click", () => chooseTemplate(inv.template));
 async function loadTemplates() {
-  const { data } = await sb.from("templates").select("id, name, style").order("created_at");
-  myTpls = (data || []).map((t) => ({ id: t.id, name: String(t.name).slice(0, 40), style: cleanStyle(t.style) }));
+  let { data, error } = await sb.from("templates").select("id, name, style, is_public, author").eq("owner", user.id).order("created_at");
+  if (error) { shareReady = false; ({ data } = await sb.from("templates").select("id, name, style").eq("owner", user.id).order("created_at")); }
+  myTpls = (data || []).map((t) => ({ id: t.id, name: String(t.name).slice(0, 40), style: cleanStyle(t.style), shared: !!t.is_public, author: t.author || "" }));
+  const mineAuthor = myTpls.find((t) => t.author)?.author; if (mineAuthor && !$("tplAuthor").value) $("tplAuthor").value = mineAuthor;
+  if (shareReady) {
+    const r = await sb.from("templates").select("id, name, style, author").eq("is_public", true).neq("owner", user.id).order("published_at", { ascending: false }).limit(60);
+    pubTpls = (r.data || []).map((t) => ({ id: t.id, name: String(t.name).slice(0, 40), style: cleanStyle(t.style), author: String(t.author || "").slice(0, 60) }));
+  }
   renderTemplates();
+}
+$("pub").addEventListener("click", (e) => { const b = e.target.closest(".tpl"); if (b) chooseTemplate(b.dataset.t); });
+$("tplShare").addEventListener("change", (e) => {
+  if (e.target.checked && !shareReady) { e.target.checked = false; toast("Sharing needs a one-time database update: run supabase/005_public_templates.sql in Supabase's SQL Editor."); return; }
+  $("tplAuthorWrap").hidden = !e.target.checked; if (e.target.checked) $("tplAuthor").focus();
+});
+async function setShared(t, on) {
+  const author = $("tplAuthor").value.trim() || t.author;
+  if (on && !author) { $("tplShare").checked = true; $("tplAuthorWrap").hidden = false; $("tplAuthor").focus(); toast("Add a name to credit first, then press Share again."); return false; }
+  const patch = on ? { is_public: true, author, published_at: new Date().toISOString() } : { is_public: false };
+  const { error } = await sb.from("templates").update(patch).eq("id", t.id);
+  if (error) { toast("Couldn't change sharing: " + error.message); return false; }
+  Object.assign(t, { shared: on, author: on ? author : t.author });
+  toast(on ? `"${t.name}" is now a community template, credited to ${author}.` : `"${t.name}" is no longer shared.`);
+  return true;
 }
 $("saveTpl").addEventListener("click", async () => {
   const name = $("tplName").value.trim();
   if (!name) { $("tplName").focus(); toast("Give your template a name first"); return; }
   const { data, error } = await sb.from("templates").insert({ name, style: inv.style }).select("id").single();
   if (error) { toast("Couldn't save: " + error.message); return; }
-  myTpls.push({ id: data.id, name, style: { ...inv.style } });
+  const t = { id: data.id, name, style: { ...inv.style }, shared: false, author: "" };
+  myTpls.push(t);
   inv.template = "mine:" + data.id; $("tplName").value = "";
   renderTemplates(); queueSave(); toast(`Saved "${name}"`);
+  if ($("tplShare").checked && await setShared(t, true)) { $("tplShare").checked = false; $("tplAuthorWrap").hidden = true; renderTemplates(); }
 });
 
 /* ---------- photo ---------- */
@@ -653,6 +802,7 @@ function fillPhoto() {
     const framed = p.mode !== "background";
     $("pShapeWrap").hidden = !framed; $("pSizeRow").hidden = !framed; $("matchFrame").hidden = !framed; $("pFadeWrap").hidden = framed;
   }
+  $("palBox").hidden = !src;
   $("removePhoto").textContent = confirmPhoto ? "Confirm remove" : "Remove photo";
   $("removePhoto").className = "btn sm " + (confirmPhoto ? "danger" : "ghost");
   if (!photoBusy) $("photoNote").textContent = "Or drag a photo here. JPG, PNG or WebP.";
@@ -729,6 +879,7 @@ $("removePhoto").addEventListener("click", () => {
 // Drag the photo in the preview to move it.
 $("designCard").addEventListener("pointerdown", (e) => {
   const p = inv?.photo; if (!p) return;
+  if (fd?.on && (p.mode === "background" || e.target.closest(".ly, .fd-overlay"))) return;
   const box = e.target.closest(p.mode === "background" ? ".card-inner.has-bg" : ".c-photo"); if (!box) return;
   const img = box.querySelector(".c-photo img,.c-bg img"); if (!img) return;
   e.preventDefault(); box.setPointerCapture(e.pointerId); box.classList.add("dragging");
@@ -947,3 +1098,146 @@ $("csv").addEventListener("click", () => {
 });
 
 init();
+
+
+/* ---------- free design ---------- */
+const fdContext = {
+  $, toast, phone,
+  getStyle: () => inv.style,
+  setStyle(style, save = true) { inv.style = cleanStyle(style, inv.style); if (save) { fillStyle(); renderTemplates(); queueSave(); } else renderDesign(); },
+  // show a style on the preview without keeping it (while dragging a layer up or down the list)
+  preview(style) { $("designCard").innerHTML = cardHTML(style ? { ...inv, style: cleanStyle(style, inv.style) } : inv, null, curLang()); fitPreview(); fd.decorate(); },
+  announce(msg) { $("fdLive").textContent = msg; },
+  upload: uploadDecoration,
+};
+// Your own pictures for the card: PNG, WebP or JPG kept as they are (resized if huge); SVG turned into a PNG here,
+// so only plain pictures are ever stored.
+async function uploadDecoration(file) {
+  if (!/^image\/(png|webp|jpeg|svg\+xml)$/.test(file.type)) throw new Error("Please choose a PNG, SVG, WebP or JPG picture.");
+  if (file.size > 10e6) throw new Error("That picture is over 10 MB. Please use a smaller one.");
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error("Couldn't read that picture. Try a PNG.")); img.src = url; });
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if (file.type === "image/svg+xml") {   // drawings have no fixed size: use their proportions, 1600px on the long side
+      const vb = (await file.text()).match(/viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i);
+      const ar = vb ? +vb[2] / +vb[1] : (h && w ? h / w : 1);
+      w = ar <= 1 ? 1600 : Math.round(1600 / ar); h = Math.round(w * ar);
+    } else { const k = Math.min(1, 1600 / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k); }
+    if (!w || !h) throw new Error("Couldn't read that picture. Try a PNG.");
+    const keepJpeg = file.type === "image/jpeg";
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    const type = keepJpeg ? "image/jpeg" : "image/png";
+    const blob = await new Promise((r) => c.toBlob(r, type, 0.88));
+    if (!blob) throw new Error("Couldn't prepare that picture.");
+    const path = `${user.id}/${inv.id}/deco-${Date.now()}.${keepJpeg ? "jpg" : "png"}`;
+    const { error } = await sb.storage.from("photos").upload(path, blob, { contentType: type, cacheControl: "31536000", upsert: false });
+    if (error) throw new Error("Upload failed: " + error.message);
+    return { path, ar: h / w };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ---------- undo and redo (everything on the Design tab) ---------- */
+let hist = [], hi = -1, histTimer = null, restoring = false;
+const snapshot = () => JSON.stringify({ template: inv.template, details: inv.details, style: inv.style, photo: inv.photo });
+function pushHistory() {
+  clearTimeout(histTimer); histTimer = null;
+  const s = snapshot(); if (hist[hi] === s) return;
+  hist = hist.slice(0, hi + 1); hist.push(s);
+  if (hist.length > 100) hist.shift();
+  hi = hist.length - 1; undoButtons();
+}
+// changes that come quickly one after another (typing, dragging a slider) become one step
+function record() { if (restoring || !inv) return; clearTimeout(histTimer); histTimer = setTimeout(pushHistory, 500); undoButtons(); }
+function resetHistory() { hist = [snapshot()]; hi = 0; undoButtons(); }
+function undoButtons() { $("undoBtn").disabled = hi <= 0 && !histTimer; $("redoBtn").disabled = hi >= hist.length - 1; }
+function restore(i) {
+  const o = JSON.parse(hist[i]); hi = i;
+  restoring = true;
+  inv.template = o.template; inv.details = cleanDetails(o.details); inv.style = cleanStyle(o.style); inv.photo = cleanPhoto(o.photo);
+  fillForm(); queueSave();
+  restoring = false; undoButtons();
+}
+function undo() { if (histTimer) pushHistory(); if (hi > 0) { restore(hi - 1); toast("Undone"); } }
+function redo() { if (hi < hist.length - 1) { restore(hi + 1); toast("Redone"); } }
+$("undoBtn").addEventListener("click", undo);
+$("redoBtn").addEventListener("click", redo);
+document.addEventListener("keydown", (e) => {
+  if (!(e.ctrlKey || e.metaKey) || $("v-design").hidden) return;
+  const k = e.key.toLowerCase();
+  if (k !== "z" && k !== "y") return;
+  if (e.target.matches("input[type=text], input:not([type]), input[type=number], input[type=url], input[type=tel], input[type=email], textarea")) return;   // typing boxes keep their own undo
+  e.preventDefault();
+  if (k === "y" || e.shiftKey) redo(); else undo();
+});
+
+
+/* ---------- colours from the photo ---------- */
+// Finds the photo's main colours (a small k-means on a thumbnail), then builds three readable colour sets from them.
+const hexOfRgb = (c) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+function satOf(hex) { const n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b); return mx === 0 ? 0 : (mx - mn) / mx; }
+const lumOf = (hex) => contrast(hex, "#000000");   // higher = lighter
+async function photoColours(src) {
+  const img = new Image(); img.crossOrigin = "anonymous";
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
+  const c = document.createElement("canvas"); c.width = c.height = 48;
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0, 48, 48);
+  const px = [], d = g.getImageData(0, 0, 48, 48).data;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128) px.push([d[i], d[i + 1], d[i + 2]]);
+  px.sort((a, b) => a[0] + a[1] + a[2] - (b[0] + b[1] + b[2]));
+  let cents = Array.from({ length: 6 }, (_, k) => px[Math.floor(((k + 0.5) / 6) * px.length)]);
+  let groups = [];
+  for (let it = 0; it < 10; it++) {
+    groups = cents.map(() => []);
+    for (const p of px) { let bi = 0, bd = Infinity; cents.forEach((q, i) => { const dd = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2; if (dd < bd) { bd = dd; bi = i; } }); groups[bi].push(p); }
+    cents = groups.map((gr, i) => (gr.length ? [0, 1, 2].map((j) => gr.reduce((a, p) => a + p[j], 0) / gr.length) : cents[i]));
+  }
+  return cents.map((q, i) => ({ hex: hexOfRgb(q), n: groups[i].length })).filter((x) => x.n).sort((a, b) => b.n - a.n);
+}
+function palettesFrom(cols) {
+  const byLum = [...cols].sort((a, b) => lumOf(a.hex) - lumOf(b.hex));
+  const dark = byLum[0].hex, light = byLum[byLum.length - 1].hex;
+  const vivids = [...cols].sort((a, b) => satOf(b.hex) * Math.sqrt(b.n) - satOf(a.hex) * Math.sqrt(a.n));
+  const v1 = vivids[0].hex, v2 = (vivids[1] || vivids[0]).hex;
+  const make = (name, bg, inkFrom, accFrom, frameA, frameB) => {
+    const ink = fixColor(inkFrom, bg, 4.5), accent = fixColor(accFrom, bg, 3);
+    return { name, style: { bg, ink, headColor: ink, accent, frameA: frameA || accent, frameB: frameB || bg, bg2: mix(bg, accent, 0.18) } };
+  };
+  return [
+    make("Light", mix(light, "#ffffff", 0.65), dark, v1),
+    make("Dark", mix(dark, "#000000", 0.25), mix(light, "#ffffff", 0.5), v1 === dark ? light : v1),
+    make("Rich", mix(v1, "#000000", 0.45), mix(light, "#ffffff", 0.7), v2 === v1 ? light : v2, null, mix(v1, "#000000", 0.6)),
+  ];
+}
+let palettes = [];
+$("palGo").addEventListener("click", async (e) => {
+  const b = e.currentTarget; b.disabled = true; b.textContent = "Looking at your photo…";
+  try {
+    palettes = palettesFrom(await photoColours(photoUrl(inv.photo)));
+    $("palList").innerHTML = palettes.map((p, i) => `<button type="button" class="pal-opt" data-pal="${i}">
+        <span class="pal-sw" aria-hidden="true">${[p.style.bg, p.style.ink, p.style.accent, p.style.frameA, p.style.frameB].map((c) => `<i style="background:${c}"></i>`).join("")}</span>
+        <span>${esc(p.name)}</span></button>`).join("");
+    $("palList").querySelector("button")?.focus();
+  } catch { toast("Couldn't read the photo's colours. Try again in a moment."); }
+  finally { b.disabled = false; b.textContent = "Pick colours from my photo"; }
+});
+$("palList").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-pal]"); if (!b) return;
+  const p = palettes[+b.dataset.pal];
+  inv.style = cleanStyle({ ...inv.style, ...p.style }, inv.style);
+  fillStyle(); renderTemplates(); queueSave();
+  toast(`${p.name} colours from your photo applied. Undo puts the old ones back.`);
+});
+
+
+/* ---------- movement preview ---------- */
+const fxColours = () => { const st = inv.style; return [st.accent, st.frameA, st.frameB, st.ink].filter((c, i, a) => a.indexOf(c) === i); };
+$("bloom").addEventListener("change", (e) => { inv.details = cleanDetails({ ...inv.details, bloom: e.target.checked ? "1" : "" }); queueSave(); });
+$("fxPlay").addEventListener("click", () => {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { toast("Your device is set to reduce motion, so the movement is skipped here too."); return; }
+  if (inv.details.fall === "none" && inv.details.bloom !== "1") { toast("Choose something to fall, or tick bloom, first."); return; }
+  playFall(inv.details.fall, fxColours(), $("pvFrame"), { count: 22, seconds: 5 });
+  if (inv.details.bloom === "1") bloom($("designCard"));
+});

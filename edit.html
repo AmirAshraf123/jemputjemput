@@ -52,6 +52,12 @@
                 <h3 class="sub-h">Your templates</h3>
                 <div class="tpls" id="mine" style="margin-top:8px"></div>
               </div>
+              <div id="pubWrap" hidden>
+                <h3 class="sub-h">Community templates</h3>
+                <p class="hint">Designs other Jemput users have shared. Pick one and make it your own; changes stay on
+                  your card.</p>
+                <div class="tpls" id="pub" style="margin-top:8px"></div>
+              </div>
             </div>
           </fieldset>
 
@@ -97,6 +103,13 @@
                   <label class="f">Up / down <output id="oPosY"></output><input type="range" id="pPosY" data-p="dy"
                       min="-100" max="100" step="1"></label>
                 </div>
+                <label class="f">Filter<select id="pFilter" data-p="filter">
+                    <option value="none">None</option>
+                    <option value="bw">Black and white</option>
+                    <option value="warm">Warm</option>
+                    <option value="faded">Faded</option>
+                    <option value="duo">Duotone (card colours)</option>
+                  </select></label>
                 <label class="f" id="pFadeWrap">Card colour over photo <output id="oFade"></output><input type="range"
                     id="pFade" data-p="fade" min="0" max="90" step="1"></label>
                 <div class="acts">
@@ -114,42 +127,33 @@
                   class="sec-title">Make it yours</span></button> <button type="button" class="btn sm ghost"
                 id="resetStyle">Reset to template</button></legend>
             <div class="sec-body" id="sec3">
-              <h3 class="sub-h">Fonts</h3>
-              <div class="row">
-                <label class="f">Names font<select id="sNameFont" data-s="nameFont"></select></label>
-                <label class="f">Text font<select id="sBodyFont" data-s="bodyFont"></select></label>
+              <h3 class="sub-h">Card</h3>
+              <p class="hint">The card itself: its shape, background, border and the text colour every part uses unless
+                you give it its own.</p>
+              <div class="pal" id="palBox" hidden>
+                <button type="button" class="btn sm" id="palGo">Pick colours from my photo</button>
+                <div class="pal-list" id="palList" role="group" aria-label="Colour sets from your photo"></div>
               </div>
               <div class="row">
-                <label class="f">Names size <output id="oNameSize"></output><input type="range" id="sNameSize"
-                    data-s="nameSize" min="28" max="64" step="1"></label>
-                <label class="f">Text size <output id="oBodySize"></output><input type="range" id="sBodySize"
-                    data-s="bodySize" min="13" max="20" step="1"></label>
+                <label class="f">Shape<select id="sShape" data-s="shape"></select></label>
                 <label class="f">Alignment<select id="sAlign" data-s="align">
                     <option value="center">Centred</option>
                     <option value="left">Left</option>
                   </select></label>
               </div>
-              <h3 class="sub-h">Colours</h3>
               <div class="row colors">
-                <label class="f">Card<input type="color" id="sBg" data-s="bg"></label>
+                <label class="f">Background<input type="color" id="sBg" data-s="bg"></label>
                 <label class="f">Text<input type="color" id="sInk" data-s="ink"></label>
-                <label class="f">Names<input type="color" id="sAccent" data-s="accent"></label>
-                <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
-                <label class="f">Border 2<input type="color" id="sFrameB" data-s="frameB"></label>
-                <label class="f">Heading<input type="color" id="sHead" data-s="headColor"></label>
               </div>
-              <div class="readability" id="readBox" role="status"></div>
-              <h3 class="sub-h">Heading style</h3>
               <div class="row">
-                <label class="f">Letters<select id="sHeadCase" data-s="headCase">
-                    <option value="upper">CAPITALS</option>
-                    <option value="normal">As typed</option>
-                  </select></label>
-                <label class="f">Letter spacing <output id="oHeadSpacing"></output><input type="range" id="sHeadSpacing"
-                    data-s="headSpacing" min="0" max="40" step="1"></label>
+                <label class="f">Background style<select id="sTexture" data-s="texture"></select></label>
+                <label class="f" id="bg2Wrap">Gradient end colour<input type="color" id="sBg2" data-s="bg2"></label>
               </div>
-              <label class="chk"><input type="checkbox" id="sHeadItalic" data-s="headItalic"> Italic heading</label>
-              <h3 class="sub-h">Border and details</h3>
+              <div class="row">
+                <label class="f">Text font<select id="sBodyFont" data-s="bodyFont"></select></label>
+                <label class="f">Text size <output id="oBodySize"></output><input type="range" id="sBodySize"
+                    data-s="bodySize" min="13" max="20" step="1"></label>
+              </div>
               <div class="row">
                 <label class="f">Border pattern<select id="sFrame" data-s="frame">
                     <option value="none">None</option>
@@ -162,32 +166,68 @@
                     <option value="deco">Deco lines</option>
                     <option value="confetti">Confetti</option>
                   </select></label>
-                <label class="f">Divider<select id="sOrn" data-s="ornament">
-                    <option value="rule">Thin line</option>
-                    <option value="dots">• • •</option>
-                    <option value="diamond">◆</option>
-                    <option value="flourish">❦</option>
-                    <option value="none">None</option>
-                  </select></label>
                 <label class="f">Rounded corners <output id="oRadius"></output><input type="range" id="sRadius"
                     data-s="radius" min="0" max="28" step="1"></label>
               </div>
+              <div class="row colors">
+                <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
+                <label class="f">Border 2<input type="color" id="sFrameB" data-s="frameB"></label>
+              </div>
               <div class="row">
                 <label class="f">Corner ornament<select id="sCorners" data-s="corners"></select></label>
-                <label class="f">Background<select id="sTexture" data-s="texture"></select></label>
-                <label class="f" id="bg2Wrap">Gradient end colour<input type="color" id="sBg2" data-s="bg2"></label>
+                <label class="f" id="cornerColorWrap">Corner colour<input type="color" id="sCornerColor"
+                    data-s="cornerColor" data-follow="accent"></label>
               </div>
               <label class="chk"><input type="checkbox" id="sLine" data-s="line"> Thin inner frame line (uses Border 1
                 colour)</label>
+
+              <h3 class="sub-h">Parts of the card, top to bottom</h3>
+              <p class="hint" id="secHint">Drag ⠿ to move a part, untick it to hide it, and tap its colour to change
+                just that part. "Style" has its font and more.</p>
+              <ol class="sec-list" id="secList"></ol>
+              <p class="vh" id="secLive" aria-live="polite"></p>
+              <div class="readability" id="readBox" role="status"></div>
               <h3 class="sub-h">Save this look</h3>
               <div class="saveas">
                 <input id="tplName" placeholder="Name your template, e.g. Kampung Gold" maxlength="40">
                 <button type="button" class="btn" id="saveTpl">Save as my template</button>
               </div>
-              <p class="hint">Saved templates appear under "Your templates" in all your invitations.</p>
+              <label class="chk"><input type="checkbox" id="tplShare"> Share it with everyone as a community
+                template</label>
+              <label class="f" id="tplAuthorWrap" hidden>Name to credit<input id="tplAuthor" maxlength="60"
+                  placeholder="e.g. Aisyah, or @aisyah.designs" autocomplete="nickname"></label>
+              <p class="hint">Saved templates appear under "Your templates" in all your invitations. Shared ones also
+                appear for everyone, with the name you give, but never your card's words, photos or guests. Stickers and
+                pictures you added do go with it.</p>
             </div>
           </fieldset>
 
+          <fieldset id="fdBox">
+            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec11"><span
+                  class="sec-title">Free design</span></button> <small id="fdCount"></small></legend>
+            <div class="sec-body" id="sec11">
+              <label class="switch"><input type="checkbox" id="fdOn"> <span>Free design: add stickers, your own pictures
+                  and text anywhere on the card</span></label>
+              <div id="fdTools" hidden>
+                <div class="fd-add">
+                  <button type="button" class="btn" id="fdAddText">Add text</button>
+                  <label class="btn ghost file-btn" id="fdUploadLabel">Upload your own picture<input type="file"
+                      id="fdUpload" accept="image/png,image/webp,image/jpeg,image/svg+xml" class="vh"></label>
+                  <label class="chk"><input type="checkbox" id="fdSnap" checked> Snap to guides</label>
+                </div>
+                <p class="hint">PNG or SVG with a see-through background works best, like a hand-drawn monogram or a
+                  watercolour flower.</p>
+                <h3 class="sub-h">Stickers</h3>
+                <div class="chips" id="fdCats" role="group" aria-label="Sticker groups"></div>
+                <div class="fd-lib" id="fdLib"></div>
+                <div class="fd-props" id="fdProps" hidden></div>
+                <h3 class="sub-h">Layers</h3>
+                <p class="hint">The top of the list is in front. Drag ⠿ to change the order.</p>
+                <ol class="sec-list fd-layers" id="fdLayers"></ol>
+                <p class="vh" id="fdLive" aria-live="polite"></p>
+              </div>
+            </div>
+          </fieldset>
           <fieldset data-open-phone="1">
             <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec4"><span
                   class="sec-title" id="namesLegend">The couple</span></button></legend>
@@ -254,21 +294,17 @@
             </div>
           </fieldset>
           <fieldset>
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec9"><span
-                  class="sec-title">Card shape and layout</span></button></legend>
-            <div class="sec-body" id="sec9">
-              <label class="f">Shape<select id="sShape" data-s="shape"></select></label>
-              <h3 class="sub-h">Order of the card</h3>
-              <p class="hint" id="secHint">Drag the ⠿ handle to move a part. Untick one to hide it.</p>
-              <ol class="sec-list" id="secList"></ol>
-              <p class="vh" id="secLive" aria-live="polite"></p>
-            </div>
-          </fieldset>
-          <fieldset>
             <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec10"><span
                   class="sec-title">When guests open it</span></button></legend>
             <div class="sec-body" id="sec10">
               <label class="f">Opening<select id="opening" data-k="opening"></select></label>
+              <div class="row">
+                <label class="f">Falling from the top<select id="fall" data-k="fall"></select></label>
+                <div class="f fx-play"><button type="button" class="btn sm ghost" id="fxPlay">Play it on the
+                    preview</button></div>
+              </div>
+              <label class="chk"><input type="checkbox" id="bloom"> Stickers and text boxes bloom in one by one</label>
+              <p class="hint">Movement is skipped for guests whose phone is set to reduce motion.</p>
               <h3 class="sub-h">Background music</h3>
               <div id="musicNone">
                 <label class="btn sm ghost" for="musicFile" id="musicBtn">Add music</label>
@@ -286,7 +322,12 @@
         </div>
         <div class="preview" id="preview">
           <h2 class="sec">Preview</h2>
-          <div id="pvLang" class="pv-lang"></div>
+          <div class="pv-tools">
+            <button type="button" class="btn sm ghost" id="undoBtn" disabled aria-keyshortcuts="Control+Z">Undo</button>
+            <button type="button" class="btn sm ghost" id="redoBtn" disabled
+              aria-keyshortcuts="Control+Shift+Z">Redo</button>
+            <div id="pvLang" class="pv-lang"></div>
+          </div>
           <div class="pv-frame" id="pvFrame">
             <div class="pv-scale" id="pvScale">
               <div id="designCard"></div>
@@ -295,6 +336,7 @@
           <div class="pv-bar">
             <span class="pv-save" id="pvSave" aria-live="polite"></span>
             <button type="button" class="btn sm ghost" id="pvDownload">Save image</button>
+            <button type="button" class="btn sm ghost" id="pvPdf">Print PDF</button>
             <button type="button" class="btn sm ghost" id="pvFull">Full size</button>
             <button type="button" class="btn sm ghost" id="pvToggle" aria-expanded="true" aria-controls="pvFrame">Hide
               preview</button>
@@ -396,8 +438,8 @@
   </main>
   <div class="pv-full" id="pvFullView" role="dialog" aria-modal="true" aria-label="Card preview, full size" hidden>
     <div class="pv-full-bar"><span>Preview</span><span class="acts"><button type="button" class="btn sm ghost"
-          id="pvFullDownload">Save image</button><button type="button" class="btn sm" id="pvClose">Done</button></span>
-    </div>
+          id="pvFullDownload">Save image</button><button type="button" class="btn sm ghost" id="pvFullPdf">Print
+          PDF</button><button type="button" class="btn sm" id="pvClose">Done</button></span></div>
     <div class="pv-full-body" id="pvFullCard"></div>
   </div>
 

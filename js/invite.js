@@ -3,6 +3,7 @@
 //   Group link:    invite.html#g/<group code>   (anyone in a group chat)
 // Add "/preview" to either to see it without being able to reply.
 import { sb, $, toast } from "./sb.js";
+import { playFall, bloom } from "./effects.js";
 import { cardHTML, langSwitchHTML, cleanDetails, cleanStyle, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord, initialsFor, musicUrl, mix } from "./card.js";
 
 const params = new URLSearchParams(location.search);
@@ -206,10 +207,16 @@ function replyForSomeoneElse() {
 
 /* ---------- opening: an envelope the guest taps, or a gentle fade-in ---------- */
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// petals or sparkles falling, and stickers blooming in, as the card appears
+function celebrate() {
+  const d = cleanDetails(inv.details), st = cleanStyle(inv.style);
+  playFall(d.fall, [st.accent, st.frameA, st.frameB, st.ink].filter((c, i, a) => a.indexOf(c) === i));
+  if (d.bloom === "1") bloom($("card"));
+}
 function setupOpening() {
   const d = cleanDetails(inv.details);
   if (d.opening === "fade" && !reduceMotion) $("card").classList.add("reveal");
-  if (d.opening !== "envelope") return;
+  if (d.opening !== "envelope") { celebrate(); return; }
   const st = cleanStyle(inv.style);
   const ov = document.createElement("div");
   ov.className = "env-overlay";
@@ -239,6 +246,7 @@ function setupOpening() {
     ov.remove(); document.body.classList.remove("env-lock");
     document.querySelectorAll("[inert]").forEach((el) => (el.inert = false));
     $("card").classList.add("reveal"); $("card").focus({ preventScroll: true });
+    celebrate();
   }
 }
 

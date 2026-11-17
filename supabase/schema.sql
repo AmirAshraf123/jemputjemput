@@ -43,9 +43,13 @@ create table if not exists public.templates (
   owner       uuid not null default auth.uid() references auth.users(id) on delete cascade,
   name        text not null check (char_length(name) between 1 and 40),
   style       jsonb not null,
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  is_public    boolean not null default false,                                  -- shared as a community template
+  author       text check (author is null or char_length(author) between 1 and 60),   -- the name it's credited to
+  published_at timestamptz
 );
 create index if not exists templates_owner_idx on public.templates(owner);
+create index if not exists templates_public_idx on public.templates(published_at desc) where is_public;
 
 -- ─────────────────────────────────────────────────────────────
 -- Group links and duplicate flags
@@ -107,6 +111,8 @@ create policy "own guests" on public.guests for all to authenticated
 drop policy if exists "own templates" on public.templates;
 create policy "own templates" on public.templates for all to authenticated
   using (owner = (select auth.uid())) with check (owner = (select auth.uid()));
+drop policy if exists "shared templates" on public.templates;
+create policy "shared templates" on public.templates for select to authenticated using (is_public);
 
 -- Group-link replies: "Both" for weddings and engagements, no group for anything else.
 create or replace function public.default_side(p_details jsonb) returns text

@@ -1,6 +1,7 @@
 // Everything about how an invitation card looks: fonts, templates, photo placement.
 // Used by the landing page, the editor and the guest page, so all three always match.
 import { BASE_URL as SUPABASE_URL } from "./base-url.js";
+import { STICKERS, stickerMask } from "./stickers.js";
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const clamp = (n, a, b, d) => { n = +n; return Number.isFinite(n) ? Math.min(b, Math.max(a, n)) : d; };
@@ -113,7 +114,7 @@ export function fontCSSUrl(keys) {
 /** The font keys a card uses: names, text and any second-language font. */
 export function cardFontKeys(inv) {
   const s = cleanStyle(inv.style), d = cleanDetails(inv.details);
-  return [s.nameFont, s.bodyFont, LANGS[d.lang1]?.key, LANGS[d.lang2]?.key, "figtree", "playfair"].filter(Boolean);
+  return [s.nameFont, s.bodyFont, ...PART_STYLE.map((p) => p.font && s[p.font]).filter(Boolean), ...s.layers.filter((x) => x.type === "text" && x.font).map((x) => x.font), LANGS[d.lang1]?.key, LANGS[d.lang2]?.key, "figtree", "playfair"].filter(Boolean);
 }
 export function ensureFonts(keys) {
   if (typeof document === "undefined") return;
@@ -232,6 +233,21 @@ export const TEXTURES = { none: "Plain", paper: "Paper grain", linen: "Linen", d
 export const SHAPES = { portrait: "Portrait (fits the text)", square: "Square: Instagram post", story: "Tall: Stories and Status" };
 
 /** Returns a safe, complete style. Anything missing or invalid falls back. */
+/* Each part of the card can have its own colour and font. An empty value means "same as the card's text"
+   (or the names colour, for the divider and corners). `v` is the CSS variable the card uses. */
+export const PART_STYLE = [
+  { part: "headline", color: "headColor", font: "headFont", fv: "--hf" },
+  { part: "names", color: "accent" },
+  { part: "message", color: "msgColor", font: "msgFont", v: "--mc", fv: "--mf" },
+  { part: "divider", color: "divColor", v: "--oc", follows: "accent" },
+  { part: "when", color: "whenColor", font: "whenFont", v: "--wc", fv: "--wf" },
+  { part: "where", color: "whereColor", font: "whereFont", v: "--vc", fv: "--vf" },
+  { part: "dress", color: "dressColor", font: "dressFont", v: "--dc", fv: "--df" },
+  { part: "extras", color: "extrasColor", font: "extrasFont", v: "--xc", fv: "--xf" },
+];
+/** The colour a part actually shows in, following the card's text or names colour when it has none of its own. */
+export const partColor = (s, key) => s[key] || (key === "divColor" || key === "cornerColor" ? s.accent : s.ink);
+
 export function cleanStyle(s, fallback = PRESETS[0].style) {
   s = s && typeof s === "object" ? s : {};
   const f = fallback, col = (k) => (HEX.test(s[k]) ? s[k] : f[k]);
@@ -255,6 +271,13 @@ export function cleanStyle(s, fallback = PRESETS[0].style) {
     texture: s.texture in TEXTURES ? s.texture : (f.texture in TEXTURES ? f.texture : "none"),
     bg2: HEX.test(s.bg2) ? s.bg2 : (HEX.test(f.bg2) ? f.bg2 : mix(col("bg"), col("accent"), 0.18)),
     shape: s.shape in SHAPES ? s.shape : (f.shape in SHAPES ? f.shape : "portrait"),
+    // per-part colours and fonts ("" = follow the card)
+    // (a key that's present but empty means the person chose "follow the card")
+    ...Object.fromEntries([...PART_STYLE.filter((p) => p.v).map((p) => p.color), "cornerColor"].map((k) => [k, k in s ? (HEX.test(s[k]) ? s[k] : "") : (HEX.test(f[k]) ? f[k] : "")])),
+    ...Object.fromEntries(PART_STYLE.filter((p) => p.font).map((p) => p.font).map((k) => [k, k in s ? (FONTS[s[k]] ? s[k] : "") : (FONTS[f[k]] ? f[k] : "")])),
+    namesFoil: s.namesFoil in FOILS ? s.namesFoil : (f.namesFoil in FOILS ? f.namesFoil : ""),
+    // free-design layer: stickers, pictures and text boxes placed anywhere
+    layers: cleanLayers("layers" in s ? s.layers : f.layers),
   };
 }
 
@@ -278,12 +301,100 @@ export function readabilityIssues(style, photo) {
   const grounds = s.texture === "gradient" ? [s.bg, s.bg2] : [s.bg];
   const worst = (c) => Math.min(...grounds.map((g) => contrast(c, g)));
   const issues = [];
-  for (const [key, label, need] of [["ink", "Text", 4.5], ["headColor", "Heading", 4.5], ["accent", "Names", 3]]) {
+  const checks = [["ink", "Text", 4.5], ["headColor", "Heading", 4.5], ["accent", "Names", 3],
+  ["msgColor", "Message", 4.5], ["whenColor", "Date and time", 4.5], ["whereColor", "Venue", 4.5], ["dressColor", "Dress code", 4.5], ["extrasColor", "Extra lines", 4.5]];
+  for (const [key, label, need] of checks) {
+    if (!s[key]) continue;   // follows the text colour, which is already checked
     const r = worst(s[key]);
     if (r < need) issues.push({ key, label, ratio: r, need, fix: fixColor(s[key], grounds, need) });
   }
   if (p?.mode === "background" && p.fade < 55) issues.push({ key: "fade", label: "Photo behind the text", photo: true });
   return issues;
+}
+
+/* ---------- free design: stickers, pictures and text boxes placed anywhere on the card ----------
+   Positions are the item's centre as a % of the card's width (x) and height (y); widths are a % of the card's width,
+   so a design keeps its look on every screen size, card shape and language. */
+export const FOILS = {
+  "": { label: "None" },
+  gold: { label: "Gold foil", css: "linear-gradient(135deg,#8a6a1f 0%,#f6e27a 32%,#b8892b 52%,#fff3b0 72%,#9c7a2a 100%)" },
+  rose: { label: "Rose gold foil", css: "linear-gradient(135deg,#9b5a4a 0%,#f4c7b3 32%,#b9766a 52%,#ffe1d4 72%,#a5604f 100%)" },
+  silver: { label: "Silver foil", css: "linear-gradient(135deg,#6f7378 0%,#f2f4f6 32%,#9aa0a6 52%,#ffffff 72%,#7d8288 100%)" },
+};
+export const FILTERS = {
+  none: { label: "None", css: "" },
+  bw: { label: "Black and white", css: "grayscale(1) contrast(1.05)" },
+  warm: { label: "Warm", css: "sepia(.35) saturate(1.25) brightness(1.03)" },
+  faded: { label: "Faded", css: "contrast(.82) brightness(1.1) saturate(.7)" },
+  duo: { label: "Duotone (card colours)", css: "grayscale(1) contrast(1.1)" },
+};
+export const MAX_LAYERS = 40;
+const num = (v, lo, hi, d) => (Number.isFinite(+v) && v !== "" && v !== null ? Math.min(hi, Math.max(lo, +v)) : d);
+export function cleanLayers(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const x of list.slice(0, MAX_LAYERS)) {
+    if (!x || typeof x !== "object") continue;
+    const base = {
+      id: typeof x.id === "string" && /^[a-z0-9]{4,12}$/.test(x.id) ? x.id : Math.random().toString(36).slice(2, 10),
+      x: num(x.x, -50, 150, 50), y: num(x.y, -50, 150, 50), w: num(x.w, 2, 200, 30), rot: num(x.rot, -180, 180, 0),
+      fx: !!x.fx, fy: !!x.fy, op: num(x.op, 0.05, 1, 1), back: !!x.back, hide: !!x.hide, lock: !!x.lock, shadow: !!x.shadow,
+    };
+    if (x.type === "sticker" && STICKERS[x.sticker]) {
+      out.push({ ...base, type: "sticker", sticker: x.sticker, color: HEX.test(x.color) ? x.color : "", foil: x.foil in FOILS ? x.foil : "" });
+    } else if (x.type === "image" && PHOTO_PATH.test(x.path)) {
+      out.push({ ...base, type: "image", path: x.path, ar: num(x.ar, 0.1, 10, 1), filter: x.filter in FILTERS ? x.filter : "none" });
+    } else if (x.type === "text" && typeof x.text === "string") {
+      out.push({
+        ...base, type: "text", text: x.text.slice(0, 200), font: FONTS[x.font] ? x.font : "", size: num(x.size, 2, 30, 7),
+        color: HEX.test(x.color) ? x.color : "", foil: x.foil in FOILS ? x.foil : "", ls: num(x.ls, -5, 60, 0), lh: num(x.lh, 80, 220, 120),
+        curve: num(x.curve, -100, 100, 0), align: ["left", "center", "right"].includes(x.align) ? x.align : "center", bold: !!x.bold, italic: !!x.italic
+      });
+    }
+  }
+  return out;
+}
+const layerLabel = (x) => (x.type === "sticker" ? STICKERS[x.sticker].label : x.type === "image" ? "Your picture" : `Text: ${x.text.trim().slice(0, 24) || "(empty)"}`);
+export { layerLabel };
+// curved text: an arc whose bend is set by `curve` (-100 bends down like a frown, 100 like a smile)
+function curvedTextSVG(x, fontStack) {
+  const W = 1000, fs = (x.size * W) / x.w, theta = (Math.abs(x.curve) / 100) * Math.PI * 0.95, bend = x.curve > 0 ? 1 : -1;
+  const R = theta > 0.01 ? W / 2 / Math.sin(theta / 2) : 1e6, sag = theta > 0.01 ? R * (1 - Math.cos(theta / 2)) : 0;
+  const H = Math.ceil(sag + fs * 1.5), pad = fs * 1.05;
+  const y0 = bend > 0 ? pad : H - fs * 0.35, y1 = bend > 0 ? pad + sag : H - fs * 0.35 - sag;
+  // smile: ends high, middle low (text sits on top of a "U"); frown: ends low, middle high
+  const d = bend > 0 ? `M0 ${r1(y0)}A${r1(R)} ${r1(R)} 0 0 0 ${W} ${r1(y0)}` : `M0 ${r1(y0)}A${r1(R)} ${r1(R)} 0 0 1 ${W} ${r1(y0)}`;
+  const fill = x.foil ? `url(#fl-${x.id})` : "currentColor";
+  const grad = x.foil ? `<defs><linearGradient id="fl-${x.id}" x1="0" y1="0" x2="1" y2="1">${FOILS[x.foil].css.match(/#[0-9a-f]{6} \d+%/gi).map((st) => { const [c, o] = st.split(" "); return `<stop offset="${o}" stop-color="${c}"/>`; }).join("")}</linearGradient></defs>` : "";
+  void y1;
+  return `<svg class="ly-curve" viewBox="0 0 ${W} ${H}" aria-hidden="true">${grad}<path id="cp-${x.id}" d="${d}" fill="none"/><text fill="${fill}" font-size="${r1(fs)}" style="font-family:${esc(fontStack)};font-weight:${x.bold ? 700 : 400};font-style:${x.italic ? "italic" : "normal"};letter-spacing:${x.ls / 100}em" text-anchor="middle"><textPath href="#cp-${x.id}" startOffset="50%">${esc(x.text)}</textPath></text></svg>`;
+}
+const r1 = (n) => Math.round(n * 10) / 10;
+function layerItemHTML(x, s, langFont) {
+  const t = `translate(-50%,-50%) rotate(${x.rot}deg)${x.fx || x.fy ? ` scale(${x.fx ? -1 : 1},${x.fy ? -1 : 1})` : ""}`;
+  const sh = x.shadow ? "drop-shadow(0 .9cqw 1.2cqw rgba(0,0,0,.35))" : "";
+  let inner = "";
+  if (x.type === "sticker") {
+    const st = STICKERS[x.sticker], paint = x.foil ? FOILS[x.foil].css : (x.color || s.accent), m = stickerMask(x.sticker);
+    inner = `<div class="ly-art" style="aspect-ratio:${st.w}/${st.h};background:${paint};-webkit-mask:${m} center/contain no-repeat;mask:${m} center/contain no-repeat"></div>`;
+  } else if (x.type === "image") {
+    const img = `<img src="${esc(photoUrl(x))}" alt="" crossorigin="anonymous" style="aspect-ratio:${(1 / x.ar).toFixed(4)};${FILTERS[x.filter].css ? `filter:${FILTERS[x.filter].css}` : ""}">`;
+    inner = x.filter === "duo" ? `<div class="duo" style="--d1:${s.bg};--d2:${s.accent}">${img}</div>` : img;
+  } else {
+    const stack = x.font ? FONTS[x.font][1] : "var(--bf)", full = langFont && x.font ? stack.replace(/(serif|cursive|sans-serif)$/, langFont + ",$1") : stack;
+    const col = x.color || s.ink;
+    inner = x.curve
+      ? `<div class="ly-text" style="color:${col}">${curvedTextSVG(x, full)}</div>`
+      : `<div class="ly-text${x.foil ? " foil" : ""}" style="font-family:${esc(full)};font-size:${x.size}cqw;color:${col};letter-spacing:${x.ls / 100}em;line-height:${x.lh / 100};text-align:${x.align};font-weight:${x.bold ? 700 : 400};font-style:${x.italic ? "italic" : "normal"}${x.foil ? `;--foil:${FOILS[x.foil].css}` : ""}">${esc(x.text)}</div>`;
+  }
+  return `<div class="ly ly-${x.type}" data-id="${x.id}" style="left:${x.x}%;top:${x.y}%;width:${x.w}%;transform:${t};opacity:${x.op}${sh ? `;filter:${sh}` : ""}">${inner}</div>`;
+}
+/** The two free-design layers: behind the card's text and in front of it. */
+export function layersHTML(s, langFont) {
+  const vis = s.layers.filter((x) => !x.hide);
+  if (!vis.length) return "";
+  const group = (back) => { const items = vis.filter((x) => x.back === back); return items.length ? `<div class="c-layer ${back ? "back" : "front"}" aria-hidden="true">${items.map((x) => layerItemHTML(x, s, langFont)).join("")}</div>` : ""; };
+  return group(true) + group(false);
 }
 
 export function frameCSS(s, scale = 1) {
@@ -315,9 +426,12 @@ function textureCSS(s) {
     default: return "linear-gradient(transparent,transparent)";
   }
 }
-function innerVars(s) {
+function innerVars(s, langFont) {
   const nf = FONTS[s.nameFont], bf = FONTS[s.bodyFont];
-  return `--tex:${textureCSS(s)};--hc:${s.headColor};--htt:${s.headCase === "upper" ? "uppercase" : "none"};--hfs:${s.headItalic ? "italic" : "normal"};--hls:${(s.headSpacing / 100).toFixed(2)}em;--cbg:${s.bg};--ink:${s.ink};--acc:${s.accent};--lc:${s.frameA};--nf:${nf[1]};--nfs:${nf[2] || "normal"};--bf:${bf[1]};--ns:${s.nameSize}px;--bs:${s.bodySize}px;--al:${s.align};--ji:${s.align === "left" ? "start" : "center"}`;
+  const withLang = (stack) => (langFont ? stack.replace(/(serif|cursive|sans-serif)$/, langFont + ",$1") : stack);
+  const parts = PART_STYLE.map((p) => (p.v && s[p.color] ? `;${p.v}:${s[p.color]}` : "") + (p.fv && s[p.font] ? `;${p.fv}:${withLang(FONTS[s[p.font]][1])}` : "")).join("")
+    + (s.cornerColor ? `;--cc:${s.cornerColor}` : "");
+  return parts.slice(1) + ";" + `--tex:${textureCSS(s)};--hc:${s.headColor};--htt:${s.headCase === "upper" ? "uppercase" : "none"};--hfs:${s.headItalic ? "italic" : "normal"};--hls:${(s.headSpacing / 100).toFixed(2)}em;--cbg:${s.bg};--ink:${s.ink};--acc:${s.accent};--lc:${s.frameA};--nf:${nf[1]};--nfs:${nf[2] || "normal"};--bf:${bf[1]};--ns:${s.nameSize}px;--bs:${s.bodySize}px;--al:${s.align};--ji:${s.align === "left" ? "start" : "center"}`;
 }
 const ORN = { dots: "• • •", diamond: "◆", flourish: "❦" };
 /* Corner ornaments, drawn for the top-left corner and mirrored for the others. Colour follows the names colour. */
@@ -345,6 +459,7 @@ export function cleanPhoto(p) {
     size: clamp(p.size, 30, 100, d.size), h: clamp(p.h, 40, 200, d.h),
     dx: clamp(p.dx, -100, 100, 0), dy: clamp(p.dy, -100, 100, 0),
     zoom: clamp(p.zoom, 20, 300, 100), ar: clamp(p.ar, 0.2, 5, 1.5), fade: clamp(p.fade, 0, 90, 60),
+    filter: p.filter in FILTERS ? p.filter : "none",
   };
 }
 export const musicUrl = (path) => (path ? `${SUPABASE_URL}/storage/v1/object/public/photos/${path}` : "");
@@ -372,17 +487,19 @@ export function watchPhotos(onAspect) {
 export const SECTIONS = { headline: "Heading", names: "Names", message: "Message", divider: "Divider", when: "Date and time", where: "Venue and address", dress: "Dress code", extras: "Extra lines and schedule" };
 export const OPENINGS = { none: "Show the card straight away", envelope: "Envelope they tap to open", fade: "Gentle fade-in" };
 export const DEFAULT_DETAILS = {
-  lang1: "en", lang2: "", opening: "none", music: "",
+  lang1: "en", lang2: "", opening: "none", music: "", fall: "none", bloom: "",
   occasion: "wedding", name1: "", name2: "", headline: "Together with their families",
   message: "We would be honoured to have you with us as we begin our life together.",
   date: "", start: "11:00", end: "16:00", rsvpBy: "", venue: "", address: "", dress: "",
 };
-const LIMITS = { lang1: 4, lang2: 4, opening: 10, music: 120, occasion: 20, name1: 60, name2: 60, headline: 80, message: 400, date: 10, start: 5, end: 5, rsvpBy: 10, venue: 120, address: 200, dress: 80 };
+const LIMITS = { lang1: 4, lang2: 4, fall: 10, bloom: 1, opening: 10, music: 120, occasion: 20, name1: 60, name2: 60, headline: 80, message: 400, date: 10, start: 5, end: 5, rsvpBy: 10, venue: 120, address: 200, dress: 80 };
 export function cleanDetails(d) {
   d = d && typeof d === "object" ? d : {};
   const out = {};
   for (const k of Object.keys(DEFAULT_DETAILS)) out[k] = typeof d[k] === "string" ? d[k].slice(0, LIMITS[k]) : DEFAULT_DETAILS[k];
   if (!(out.occasion in OCCASIONS)) out.occasion = "wedding";   // invitations made before occasions existed are weddings
+  if (!["none", "petals", "sparkles", "confetti", "hearts"].includes(out.fall)) out.fall = "none";
+  out.bloom = out.bloom === "1" || out.bloom === true ? "1" : "";
   if (!(out.lang1 in LANGS)) out.lang1 = "en";
   if (!(out.lang2 in LANGS) || out.lang2 === out.lang1) out.lang2 = "";
   // translations of the second language: { t: text, src: the wording it was made from, by: "you" or "auto" }
@@ -435,15 +552,18 @@ export function langSwitchHTML(d, current) {
 /** inv = { details, style, photo }. Returns the card's HTML. */
 export function cardHTML(inv, guestName, lang) {
   const d = cleanDetails(inv.details), s = cleanStyle(inv.style), p = cleanPhoto(inv.photo), src = photoUrl(p), occ = occasionOf(d);
-  ensureFonts([s.nameFont, s.bodyFont]);
+  ensureFonts([s.nameFont, s.bodyFont, ...PART_STYLE.map((x) => x.font && s[x.font]).filter(Boolean), ...s.layers.filter((x) => x.type === "text" && x.font).map((x) => x.font)]);
   const orn = s.ornament === "none" ? "" : s.ornament === "rule" ? `<div class="c-orn rule"></div>` : `<div class="c-orn" aria-hidden="true">${ORN[s.ornament]}</div>`;
   let bg = "", photo = "", veil = "";
   if (src) {
-    const img = `<img src="${esc(src)}" alt="" style="${imgCSS(p)}">`;
-    if (p.mode === "background") { bg = `<div class="c-bg">${img}</div><div class="c-veil"></div>`; veil = `;--veil:rgba(${hexRgb(s.bg)},${(p.fade / 100).toFixed(2)})`; }
+    const fl = FILTERS[p.filter]?.css ? `;filter:${FILTERS[p.filter].css}` : "";
+    const img = `<img src="${esc(src)}" alt="" style="${imgCSS(p)}${fl}">`;
+    // duotone: the photo in the card's background and names colours
+    const duo = p.filter === "duo";
+    if (p.mode === "background") { bg = `<div class="c-bg${duo ? ` duo" style="--d1:${s.bg};--d2:${s.accent}` : ""}">${img}</div><div class="c-veil"></div>`; veil = `;--veil:rgba(${hexRgb(s.bg)},${(p.fade / 100).toFixed(2)})`; }
     else {
       const side = p.mode === "left" || p.mode === "right";
-      photo = `<div class="c-photo ${p.shape} at-${p.mode}" style="${side ? "" : `width:${p.size}%;`}aspect-ratio:100/${p.h}">${img}</div>`;
+      photo = `<div class="c-photo ${p.shape} at-${p.mode}${p.filter === "duo" ? " duo" : ""}" style="${p.filter === "duo" ? `--d1:${s.bg};--d2:${s.accent};` : ""}${side ? "" : `width:${p.size}%;`}aspect-ratio:100/${p.h}">${img}</div>`;
     }
   }
   // which language to show: the second one only when asked for and set up
@@ -452,8 +572,8 @@ export function cardHTML(inv, guestName, lang) {
   const fontKeys = [LANGS[L].key].filter(Boolean); if (fontKeys.length) ensureFonts(fontKeys);
   const n1 = T("name1") || occ.ph1, n2 = T("name2") || occ.ph2;
   const names = occ.two
-    ? `<h2 class="c-names"><span>${esc(n1)}</span><span class="amp">&amp;</span><span>${esc(n2)}</span></h2>`
-    : `<h2 class="c-names"><span>${esc(n1)}</span></h2>${d.name2 ? `<p class="c-sub">${esc(T("name2"))}</p>` : ""}`;
+    ? `<h2 class="c-names${s.namesFoil ? " foil" : ""}"${s.namesFoil ? ` style="--foil:${FOILS[s.namesFoil].css}"` : ""}><span>${esc(n1)}</span><span class="amp">&amp;</span><span>${esc(n2)}</span></h2>`
+    : `<h2 class="c-names${s.namesFoil ? " foil" : ""}"${s.namesFoil ? ` style="--foil:${FOILS[s.namesFoil].css}"` : ""}><span>${esc(n1)}</span></h2>${d.name2 ? `<p class="c-sub">${esc(T("name2"))}</p>` : ""}`;
   const extras = d.extras.filter((x) => x.text.trim() || x.time.trim());
   const xText = (x) => (second && x.text.trim() ? translated(x.text, x.tr, d).text : x.text);
   const dress = T("dress");
@@ -476,8 +596,8 @@ export function cardHTML(inv, guestName, lang) {
   else body = photo + content;
   // Chinese and Tamil letters aren't in the card's fonts, so add a matching font after them (Latin letters keep the template's font)
   const sf = LANGS[L].font ? `;--nf:${FONTS[s.nameFont][1].replace(/(serif|cursive|sans-serif)$/, LANGS[L].font + ",$1")};--bf:${FONTS[s.bodyFont][1].replace(/(serif|cursive|sans-serif)$/, LANGS[L].font + ",$1")}` : "";
-  return `<div class="card" lang="${L}" style="${frameCSS(s)};--r:${s.radius}px"><div class="card-inner${s.line ? " lined" : ""}${bg ? " has-bg" : ""} shape-${s.shape}" style="${innerVars(s)}${veil}${sf}">
-    ${bg}${cornersHTML(s.corners)}${body}
+  return `<div class="card" lang="${L}" style="${frameCSS(s)};--r:${s.radius}px"><div class="card-inner${s.line ? " lined" : ""}${bg ? " has-bg" : ""} shape-${s.shape}" style="${innerVars(s, LANGS[L].font)}${veil}${sf}">
+    ${bg}${cornersHTML(s.corners)}${body}${layersHTML(s, LANGS[L].font)}
   </div></div>`;
 }
 

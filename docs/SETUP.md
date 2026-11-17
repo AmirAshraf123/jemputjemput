@@ -19,7 +19,10 @@ All file paths below are relative to the top of the project folder.
 | `js/config.js` | **You must edit this**: your Supabase details |
 | `js/site.js` | Your contact email for the privacy policy |
 | `privacy.html` | Privacy policy (Google asks for this before publishing Google sign-in) |
-| `js/card.js` | How cards look: templates, fonts, borders, photos. Add new templates here |
+| `js/card.js` | How cards look: templates, fonts, borders, photos, stickers and text boxes. Add new templates here |
+| `js/stickers.js` | The sticker library: flowers, leaves, frames, festive and celebration drawings. Add your own drawings here |
+| `js/freedesign.js`, `js/sortable.js` | Free design (placing stickers, pictures and text anywhere) and drag-to-reorder lists |
+| `js/effects.js` | Falling petals, sparkles and confetti, and stickers blooming in, when guests open the card |
 | `js/edit.js`, `js/dashboard.js`, `js/invite.js`, `js/landing.js` | The code for each page |
 | `js/sb.js` | Connects to Supabase and a few shared helpers |
 | `css/base.css`, `css/card.css` | Site styles and card styles |
@@ -29,6 +32,7 @@ All file paths below are relative to the top of the project folder.
 | `supabase/002_group_links.sql` | One-time update for setups made before group links existed |
 | `supabase/003_guest_groups.sql` | One-time update for setups made before guest groups (birthdays and other occasions) existed |
 | `supabase/004_music.sql` | One-time update that lets invitations have background music |
+| `supabase/005_public_templates.sql` | One-time update that lets people share templates with everyone (community templates) |
 | `.github/workflows/keep-awake.yml` | Optional: keeps a free Supabase project from pausing (step 6C) |
 
 ## Setup (about 15 minutes)
@@ -43,7 +47,7 @@ All file paths below are relative to the top of the project folder.
 
 This creates the tables, makes sure each person can only see their own invitations, sets up the photo storage, and adds the two functions guests use to view their invitation and reply. Guests never need an account.
 
-> **Set up Jemput before these updates?** Run each update you haven't run yet, the same way, once and in order: `supabase/002_group_links.sql` (group links), then `supabase/003_guest_groups.sql` (guest groups for birthdays and other occasions), then `supabase/004_music.sql` (background music). They don't touch your existing invitations or guests, and until you run them everything else keeps working.
+> **Set up Jemput before these updates?** Run each update you haven't run yet, the same way, once and in order: `supabase/002_group_links.sql` (group links), then `supabase/003_guest_groups.sql` (guest groups for birthdays and other occasions), then `supabase/004_music.sql` (background music), then `supabase/005_public_templates.sql` (community templates). They don't touch your existing invitations or guests, and until you run them everything else keeps working.
 
 ### 3. Connect the website to your project
 1. In Supabase, go to **Project Settings → API**.
@@ -139,6 +143,9 @@ GitHub switches off scheduled jobs in a repository that has had no commits for 6
 - **Replies** go through `submit_rsvp`, which checks the answer and caps the head-count at the seats you gave them.
 - **Photos** are resized in the browser before upload, stored in a folder for each user, and readable by anyone with the link so guests can see them.
 - **The Guests tab updates live.** When someone replies, it appears without refreshing.
+
+## Adding a sticker
+Open `js/stickers.js`. Each sticker is a one-colour SVG drawing using `currentColor` (use `fill-opacity` for lighter parts). Add an entry to `STICKERS` with a `label`, a `cat` (one of `STICKER_CATS`), the drawing's width `w` and height `h`, and the SVG content. It appears in the library straight away and can be recoloured or foiled like the others.
 
 ## Adding a template
 Open `js/card.js`, find `PRESETS`, copy one of the entries, give it a new `id` and `name`, and change the colours and fonts. Fonts must be in the `FONTS` list. To add a new Google Font, add it to `FONTS` and to the Google Fonts link at the top of each HTML page.

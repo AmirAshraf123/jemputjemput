@@ -346,7 +346,260 @@
   transform: scale(-1, -1)
 }
 
-.card-inner> :not(.c-bg):not(.c-veil):not(.c-corners) {
+.card-inner> :not(.c-bg):not(.c-veil):not(.c-corners):not(.c-layer) {
   position: relative;
   z-index: 1
+}
+
+/* each part's own colour and font, when set (otherwise they follow the card) */
+.c-head {
+  font-family: var(--hf, inherit)
+}
+
+.card-inner .c-msg {
+  color: var(--mc, inherit);
+  font-family: var(--mf, inherit)
+}
+
+.card-inner .c-orn {
+  color: var(--oc, var(--acc))
+}
+
+.card-inner .c-orn.rule {
+  background: var(--oc, var(--acc))
+}
+
+.card-inner .c-date,
+.card-inner .c-time {
+  color: var(--wc, inherit);
+  font-family: var(--wf, inherit)
+}
+
+.card-inner .c-venue,
+.card-inner .c-addr {
+  color: var(--vc, inherit);
+  font-family: var(--vf, inherit)
+}
+
+.card-inner .c-dress {
+  color: var(--dc, inherit);
+  font-family: var(--df, inherit)
+}
+
+.c-extras {
+  color: var(--xc, inherit);
+  font-family: var(--xf, inherit)
+}
+
+.c-corners {
+  color: var(--cc, var(--acc))
+}
+
+/* foil names */
+.c-names.foil span {
+  background: var(--foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent
+}
+
+/* free-design layers: behind the text (back) or in front of it (front) */
+.c-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none
+}
+
+.c-layer.back {
+  z-index: 0
+}
+
+.c-layer.front {
+  z-index: 3
+}
+
+.ly {
+  position: absolute;
+  transform-origin: 50% 50%
+}
+
+.ly-art {
+  width: 100%
+}
+
+.ly img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover
+}
+
+.ly .duo {
+  position: relative;
+  background: var(--d2);
+  isolation: isolate
+}
+
+.ly .duo img {
+  mix-blend-mode: multiply
+}
+
+.ly .duo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--d1);
+  mix-blend-mode: lighten
+}
+
+.ly-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere
+}
+
+.ly-text.foil {
+  background: var(--foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent
+}
+
+.ly-curve {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible
+}
+
+/* duotone photos: greyscale photo, darks become the card colour and lights the names colour */
+.c-photo.duo,
+.c-bg.duo {
+  background: var(--d2)
+}
+
+.c-photo.duo img,
+.c-bg.duo img {
+  mix-blend-mode: multiply
+}
+
+.c-photo.duo::after,
+.c-bg.duo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--d1);
+  mix-blend-mode: lighten;
+  pointer-events: none
+}
+
+/* ---------- movement when the card opens (js/effects.js) ---------- */
+.fx-fall {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 60
+}
+
+.fx-fall.in-box {
+  position: absolute;
+  z-index: 6
+}
+
+.fx {
+  position: absolute;
+  top: -30px;
+  width: var(--s);
+  height: var(--s);
+  background: var(--c);
+  opacity: .9;
+  animation: fx-fall var(--d) cubic-bezier(.3, .1, .7, 1) var(--w) both
+}
+
+.fx.petals {
+  border-radius: 80% 0 80% 0;
+  height: calc(var(--s) * .75)
+}
+
+.fx.confetti {
+  width: calc(var(--s) * .45);
+  border-radius: 2px
+}
+
+.fx.sparkles {
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%)
+}
+
+.fx.hearts {
+  clip-path: path("M5 9 C1 6 0 4 0 2.6 C0 1 1.2 0 2.6 0 C3.6 0 4.4 .6 5 1.4 C5.6 .6 6.4 0 7.4 0 C8.8 0 10 1 10 2.6 C10 4 9 6 5 9Z");
+  width: 10px;
+  height: 9px;
+  transform-origin: center;
+  scale: calc(var(--s) / 12px)
+}
+
+@keyframes fx-fall {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 0
+  }
+
+  8% {
+    opacity: .95
+  }
+
+  50% {
+    transform: translate(var(--x), 55vh) rotate(calc(var(--r) / 2))
+  }
+
+  100% {
+    transform: translate(calc(var(--x) * -.5), 110vh) rotate(var(--r));
+    opacity: 0
+  }
+}
+
+.fx-fall.in-box .fx {
+  animation-name: fx-fall-box
+}
+
+@keyframes fx-fall-box {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 0
+  }
+
+  8% {
+    opacity: .95
+  }
+
+  100% {
+    transform: translate(var(--x), 700px) rotate(var(--r));
+    opacity: 0
+  }
+}
+
+.fx-bloom .ly>* {
+  animation: fx-bloom .7s cubic-bezier(.2, .8, .3, 1.2) calc(var(--i, 0) * 140ms + 150ms) both
+}
+
+@keyframes fx-bloom {
+  from {
+    opacity: 0;
+    transform: scale(.6)
+  }
+
+  to {
+    opacity: 1;
+    transform: none
+  }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .fx-fall {
+    display: none
+  }
+
+  .fx-bloom .ly>* {
+    animation: none
+  }
 }
