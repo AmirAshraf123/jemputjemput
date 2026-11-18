@@ -72,3 +72,8 @@ document.addEventListener("click", function (e) {
   b.setAttribute("aria-expanded", String(open));
   box.hidden = !open;
 });
+
+// Offline support: keeps a copy of the site on the phone (see sw.js). Only on real hosting or this computer.
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () { }); });
+}

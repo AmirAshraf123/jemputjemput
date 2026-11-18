@@ -105,3 +105,34 @@ $("occGrid").addEventListener("click", async (e) => {
   if (error) { for (const x of $("occGrid").querySelectorAll("button")) x.disabled = false; toast("Couldn't create it: " + error.message); return; }
   location.href = `edit.html#${data.id}/start`;   // the editor opens with a short guided start
 });
+
+
+/* ---------- delete my account: files first, then the account (which takes everything else with it) ---------- */
+$("delConfirm").addEventListener("input", (e) => { $("delAccount").disabled = e.target.value.trim().toUpperCase() !== "DELETE"; });
+$("delAccount").addEventListener("click", async () => {
+  const btn = $("delAccount"); btn.disabled = true; btn.textContent = "Deleting…";
+  try {
+    // every photo and music file is stored under <your id>/<invitation id>/
+    const bucket = sb.storage.from("photos"), paths = [];
+    const { data: top } = await bucket.list(user.id, { limit: 1000 });
+    for (const f of top || []) {
+      if (f.id) { paths.push(`${user.id}/${f.name}`); continue; }   // a file at the top level
+      const { data: inner } = await bucket.list(`${user.id}/${f.name}`, { limit: 1000 });
+      for (const x of inner || []) paths.push(`${user.id}/${f.name}/${x.name}`);
+    }
+    for (let i = 0; i < paths.length; i += 100) await bucket.remove(paths.slice(i, i + 100));
+    const { error } = await sb.rpc("delete_my_account");
+    if (error) {
+      toast(/could not find|function/i.test(error.message)
+        ? "Deleting accounts needs a one-time database update: run supabase/006_safety_and_checkin.sql in Supabase's SQL Editor."
+        : "Couldn't delete your account: " + error.message);
+      btn.disabled = false; btn.textContent = "Delete everything"; return;
+    }
+    try { for (const k of Object.keys(localStorage)) if (k.startsWith("jemput.")) localStorage.removeItem(k); } catch { }
+    await sb.auth.signOut().catch(() => { });
+    location.href = "index.html#deleted";
+  } catch (err) {
+    toast("Couldn't delete your account. Check your connection and try again.");
+    btn.disabled = false; btn.textContent = "Delete everything";
+  }
+});

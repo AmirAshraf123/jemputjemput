@@ -1,4 +1,4 @@
-import { sb, isConfigured, $, showSetupNotice } from "./sb.js";
+import { sb, isConfigured, $, showSetupNotice, toast } from "./sb.js";
 import { cardHTML, thumbHTML, PRESETS, presetById, OCCASIONS, defaultDetailsFor, initialsFor, esc } from "./card.js";
 
 /* ---------- try it: a live card that updates as you type, kept for after sign-in ---------- */
@@ -83,3 +83,6 @@ $("signin").addEventListener("submit", async (e) => {
     ? `Couldn't send the link: ${error.message}`
     : `Check ${email} for your link. It may take a minute, or land in spam.`;
 });
+
+// arriving here after deleting an account
+if (location.hash === "#deleted") { history.replaceState(null, "", location.pathname); toast("Your account and everything in it has been deleted."); }

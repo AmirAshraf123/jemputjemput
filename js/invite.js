@@ -18,6 +18,8 @@ let inv = null, guest = null, draft = null, maxSeats = 1, openingDone = false, m
 let lang = "";   // which language the card is showing, for two-language cards
 const w = (key, ...a) => words(lang, key, ...a);   // the page's wording in that language
 let replyBtn = null, rsvpSeen = false;            // the floating Reply button
+const QR_LIB = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm";   // draws the entry pass
+let formShownAt = Date.now(), quickOk = false;    // for the "too quick to be a person" check
 let mode = "personal";   // "personal": replying as a known guest; "group": filling in the group form
 
 watchPhotos();
@@ -32,6 +34,13 @@ const remember = (t) => { try { localStorage.setItem(memKey(), t); } catch { } }
 const recall = () => { try { return localStorage.getItem(memKey()) || ""; } catch { return ""; } };
 const forget = () => { try { localStorage.removeItem(memKey()); } catch { } };
 
+// The last invitation opened on this phone, kept for when there's no signal (at the venue, on the train…).
+const offlineKey = (k) => "jemput.inv." + k;
+const keepCopy = (k, data) => { try { localStorage.setItem(offlineKey(k), JSON.stringify(data)); } catch { } };
+const lastCopy = (k) => { try { return JSON.parse(localStorage.getItem(offlineKey(k)) || "null"); } catch { return null; } };
+const noSignal = (error) => !navigator.onLine || /fetch|network|load failed/i.test(error?.message || "");
+function showOffline() { const n = $("offlineNote"); if (n) { n.textContent = w("offline"); n.hidden = false; } }
+
 await start();
 
 async function start() {
@@ -40,7 +49,9 @@ async function start() {
     const saved = preview ? "" : recall();
     if (saved && await loadPersonal(saved)) return;
     if (saved) forget();               // the couple removed that reply; start fresh
-    const { data, error } = await sb.rpc("get_group_invite", { p_token: groupToken });
+    let { data, error } = await sb.rpc("get_group_invite", { p_token: groupToken });
+    if (!error && data) keepCopy("g." + groupToken, data);
+    else if (noSignal(error) && lastCopy("g." + groupToken)) { data = lastCopy("g." + groupToken); error = null; showOffline(); }
     if (error || !data) return notFound(error, true);
     inv = data.invitation; maxSeats = Math.max(1, data.max_seats || 1); guest = null; mode = "group";
     setTitle(); render();
@@ -50,7 +61,9 @@ async function start() {
 }
 
 async function loadPersonal(t) {
-  const { data, error } = await sb.rpc("get_invite", { p_token: t });
+  let { data, error } = await sb.rpc("get_invite", { p_token: t });
+  if (!error && data) keepCopy(t, data);
+  else if (noSignal(error) && lastCopy(t)) { data = lastCopy(t); error = null; showOffline(); }
   if (error || !data) return false;
   token = t; inv = data.invitation; guest = data.guest; maxSeats = Math.max(1, guest.seats || 1); mode = "personal";
   setTitle(); render();
@@ -130,15 +143,18 @@ function renderRsvp() {
   if (mode === "personal" && g.status !== "pending" && !draft) {
     el.innerHTML = `<div class="thanks"><h3>${g.status === "yes" ? w("seeYou") : w("thanksNo")}</h3>
       <p class="sub">${g.status === "yes" ? w("saved", g.coming) : w("missed")}</p>
+      ${g.status === "yes" && mode === "personal" && !preview ? `<div class="pass" id="pass"><p class="pass-h">${w("passTitle")}</p><div class="pass-qr" id="passQr" role="img" aria-label="${esc(w("passAlt", g.name))}"></div><p class="sub">${esc(g.name)} · ${esc(w("passSeats", g.coming))}</p></div>` : ""}
       <button class="btn ghost" id="change">${w("change")}</button>
       ${isGroup ? `<button class="linkbtn" id="someoneElse">${esc(w("someoneElse", g.name))}</button>` : ""}</div>`;
     replyButton();
     $("change").onclick = () => { draft = { status: g.status, coming: g.coming || 1, dietary: g.dietary || "", note: g.note || "" }; renderRsvp(); };
     if (isGroup) $("someoneElse").onclick = replyForSomeoneElse;
+    if ($("passQr")) drawPass();
     return;
   }
 
   const groupForm = mode === "group";
+  if (!draft) formShownAt = Date.now();
   draft ||= { status: "", coming: groupForm ? 1 : maxSeats, dietary: "", note: "", name: "", phone: "" };
   const seatHint = groupForm ? w("upTo", maxSeats) : w("reserved", maxSeats);
   el.innerHTML = `<h3 id="rsvpTitle">${w("join")}</h3>
@@ -146,7 +162,8 @@ function renderRsvp() {
     ${groupForm ? `
       <label class="f">${w("name")}<input id="rName" maxlength="120" autocomplete="name" value="${esc(draft.name)}" placeholder="e.g. Daniel Tan"></label>
       <label class="f">${w("phone")}<input id="rPhone" type="tel" inputmode="tel" maxlength="40" autocomplete="tel" value="${esc(draft.phone)}" placeholder="9123 4567"></label>
-      <p class="hint">${esc(w("numberNote", hostWord(d)))}</p>` : ""}
+      <p class="hint">${esc(w("numberNote", hostWord(d)))}</p>
+      <label class="trap" aria-hidden="true">Leave this empty<input id="rWebsite" tabindex="-1" autocomplete="off"></label>` : ""}
     <div class="choice"><button type="button" class="y" data-s="yes" aria-pressed="${draft.status === "yes"}">${w("yes")}</button>
       <button type="button" class="n" data-s="no" aria-pressed="${draft.status === "no"}">${w("no")}</button></div>
     <div ${draft.status === "yes" ? "" : "hidden"} style="display:grid;gap:12px">
@@ -187,6 +204,9 @@ async function send() {
 async function sendGroup() {
   if (preview) return;
   readDraft();
+  // spam traps: a hidden box only robots fill in, and replies faster than a person could type
+  if ($("rWebsite")?.value) { draft = null; renderRsvp(); return; }
+  if (Date.now() - formShownAt < 2500 && !quickOk) { quickOk = true; showError(w("errQuick")); return; }
   if (!draft.name.trim()) { showError(w("errName")); $("rName").focus(); return; }
   if (draft.phone.replace(/\D/g, "").length < 8) { showError(w("errPhone")); $("rPhone").focus(); return; }
   busy(true);
@@ -196,6 +216,7 @@ async function sendGroup() {
   });
   if (error) {
     busy(false);
+    if (/Too many replies|a lot of replies/i.test(error.message || "")) { showError(w("errBusy")); return; }
     const known = /Please enter|Please choose|reached its limit|not found/i.test(error.message || "");
     showError(known ? error.message.replace("Invitation not found", "This group link has been turned off. Please ask whoever sent it for the current link.")
       : w("errSend"));
@@ -297,4 +318,16 @@ function replyButton() {
   replyBtn.textContent = w("reply");
   replyBtn.dataset.on = pending ? "1" : "";
   replyBtn.hidden = rsvpSeen || !pending;
+}
+
+
+/* ---------- entry pass: a QR code of the guest's own link, for the hosts to scan at the door ---------- */
+async function drawPass() {
+  try {
+    const { default: qrcode } = await import(QR_LIB);
+    const qr = qrcode(0, "M");
+    qr.addData(location.origin + location.pathname + "#" + token);
+    qr.make();
+    if ($("passQr")) $("passQr").innerHTML = qr.createSvgTag({ cellSize: 5, margin: 3, scalable: true });
+  } catch { $("pass")?.remove(); }   // no connection: the hosts can still find the guest by name
 }

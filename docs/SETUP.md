@@ -33,6 +33,8 @@ All file paths below are relative to the top of the project folder.
 | `supabase/002_group_links.sql` | One-time update for setups made before group links existed |
 | `supabase/003_guest_groups.sql` | One-time update for setups made before guest groups (birthdays and other occasions) existed |
 | `supabase/004_music.sql` | One-time update that lets invitations have background music |
+| `supabase/006_safety_and_checkin.sql` | One-time update for account deletion, spam limits on group links, reporting shared templates, and check-in on the day |
+| `sw.js` | Offline support: keeps a copy of the site on guests' phones so the invitation opens without signal |
 | `supabase/005_public_templates.sql` | One-time update that lets people share templates with everyone (community templates) |
 | `.github/workflows/keep-awake.yml` | Optional: keeps a free Supabase project from pausing (step 6C) |
 
@@ -48,7 +50,7 @@ All file paths below are relative to the top of the project folder.
 
 This creates the tables, makes sure each person can only see their own invitations, sets up the photo storage, and adds the two functions guests use to view their invitation and reply. Guests never need an account.
 
-> **Set up Jemput before these updates?** Run each update you haven't run yet, the same way, once and in order: `supabase/002_group_links.sql` (group links), then `supabase/003_guest_groups.sql` (guest groups for birthdays and other occasions), then `supabase/004_music.sql` (background music), then `supabase/005_public_templates.sql` (community templates). They don't touch your existing invitations or guests, and until you run them everything else keeps working.
+> **Set up Jemput before these updates?** Run each update you haven't run yet, the same way, once and in order: `supabase/002_group_links.sql` (group links), then `supabase/003_guest_groups.sql` (guest groups for birthdays and other occasions), then `supabase/004_music.sql` (background music), then `supabase/005_public_templates.sql` (community templates), then `supabase/006_safety_and_checkin.sql` (delete account, spam limits, template reports, check-in). They don't touch your existing invitations or guests, and until you run them everything else keeps working.
 
 ### 3. Connect the website to your project
 1. In Supabase, go to **Project Settings → API**.
@@ -137,6 +139,36 @@ Free Supabase projects pause after a week with no visitors. While paused, nobody
 
 GitHub switches off scheduled jobs in a repository that has had no commits for 60 days, so cron-job.org is the more hands-off choice.
 
+### 7. Use your own web address (optional)
+Instead of `jemput-abc123.netlify.app`, you can use your own address like `jemput.sg` or `jemput.com`. Netlify gives it a free HTTPS certificate automatically. Only the domain itself costs money, usually paid yearly.
+
+**A. Buy the domain**
+- A `.com` costs roughly US$10–15 a year from a registrar such as Cloudflare, Namecheap or Porkbun.
+- A `.sg` usually costs more, and individuals need a Singapore postal address and a SingPass ID; the registrar verifies this. A `.com.sg` is for registered businesses.
+- Turn on the registrar's free privacy protection if it offers one, so your home address isn't published.
+
+**B. Connect it in Netlify**
+1. In Netlify, open your site → **Domain management** → **Add a domain**, type your address, and confirm.
+2. Netlify then shows the records to add. Choose one way:
+   - **Let Netlify handle it (simplest):** pick **Set up Netlify DNS**, then at your registrar replace the nameservers with the four Netlify shows.
+   - **Keep your registrar's DNS:** in the registrar's DNS settings, add:
+
+     | Type | Name / Host | Value |
+     |---|---|---|
+     | `ALIAS` or `ANAME` (or `A` if those aren't offered) | `@` | `apex-loadbalancer.netlify.com` (for an `A` record: `75.2.60.5`) |
+     | `CNAME` | `www` | your Netlify address, e.g. `jemput-abc123.netlify.app` |
+
+     Netlify's **Domain management** page shows the exact values for your site. Use those if they differ.
+3. Wait. DNS changes can take up to a day. Netlify shows "HTTPS certificate provisioned" when it's ready.
+4. In **Domain management**, make your new address the **primary domain**. The old `netlify.app` address keeps working and sends visitors to the new one, so links already sent on WhatsApp don't break.
+
+**C. Tell Supabase and Google about the new address**
+1. Supabase → **Authentication → URL Configuration**: set **Site URL** to `https://your-domain`, and add `https://your-domain/**` to **Redirect URLs**. Keep the old Netlify one there too.
+2. If you use Google sign-in: Google Cloud console → **Clients** → your web client → **Authorized JavaScript origins**: add `https://your-domain`. The redirect URI (the `supabase.co` one) stays the same.
+3. Update the **Live site** link at the top of `README.md`.
+
+Guest links and WhatsApp messages use whatever address the site is opened from, so nothing else needs changing.
+
 ## How the pieces work
 
 - **Couples** sign in with Google or with a link sent to their email. Each invitation, guest and saved template belongs to the person who made it, and the database refuses anyone else.
@@ -144,6 +176,9 @@ GitHub switches off scheduled jobs in a repository that has had no commits for 6
 - **Replies** go through `submit_rsvp`, which checks the answer and caps the head-count at the seats you gave them.
 - **Photos** are resized in the browser before upload, stored in a folder for each user, and readable by anyone with the link so guests can see them.
 - **The Guests tab updates live.** When someone replies, it appears without refreshing.
+- **Group links are limited** to 8 replies per 10 minutes from one connection and 60 per 10 minutes overall, which stops a forwarded link being flooded. The reply form also has a hidden box that only robots fill in.
+- **Check-in on the day:** guests who said yes see an entry pass (a QR code of their own link). On the Guests tab, **Check-in** scans passes with the phone camera, or finds guests by name.
+- **Shared templates** leave the community list after three different people report them.
 
 ## Adding a sticker
 Open `js/stickers.js`. Each sticker is a one-colour SVG drawing using `currentColor` (use `fill-opacity` for lighter parts). Add an entry to `STICKERS` with a `label`, a `cat` (one of `STICKER_CATS`), the drawing's width `w` and height `h`, and the SVG content. It appears in the library straight away and can be recoloured or foiled like the others.

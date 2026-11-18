@@ -2,6 +2,9 @@
    Values are strings, or functions for wording that includes a number or a name. */
 const W = {
   en: {
+    offline: "You're offline. This is the invitation as it was when you last opened it. Replying needs a connection.",
+    passTitle: "Your entry pass: show this at the door", passAlt: (n) => `Entry pass QR code for ${n}`, passSeats: (n) => `${n} ${n === 1 ? "seat" : "seats"}`,
+    errQuick: "That was quick! Please check your details, then press Send again.", errBusy: "Lots of replies are arriving right now. Please try again in a few minutes.",
     join: "Will you join us?", replyBy: (d) => `Please reply by ${d}.`, yes: "Joyfully accept", no: "Regretfully decline",
     howMany: "How many of you are coming?", upTo: (n) => `(up to ${n})`, reserved: (n) => `(${n} ${n === 1 ? "seat" : "seats"} reserved for you)`,
     diet: "Dietary needs", dietPh: "e.g. vegetarian, no seafood", note: (h) => `A note for ${h} (optional)`,
@@ -17,6 +20,9 @@ const W = {
     play: "Play music", pause: "Pause music",
   },
   ms: {
+    offline: "Anda di luar talian. Ini jemputan seperti kali terakhir anda membukanya. Untuk membalas, sambungkan ke internet.",
+    passTitle: "Pas masuk anda: tunjukkan di pintu", passAlt: (n) => `Kod QR pas masuk untuk ${n}`, passSeats: (n) => `${n} tempat`,
+    errQuick: "Cepatnya! Sila semak butiran anda, kemudian tekan Hantar sekali lagi.", errBusy: "Banyak jawapan sedang diterima. Sila cuba lagi dalam beberapa minit.",
     join: "Sudikah anda hadir?", replyBy: (d) => `Sila balas sebelum ${d}.`, yes: "Dengan gembira, saya hadir", no: "Maaf, tidak dapat hadir",
     howMany: "Berapa orang yang akan hadir?", upTo: (n) => `(sehingga ${n})`, reserved: (n) => `(${n} tempat dikhaskan untuk anda)`,
     diet: "Keperluan pemakanan", dietPh: "cth. vegetarian, tiada makanan laut", note: () => "Pesanan untuk tuan rumah (pilihan)",
@@ -32,6 +38,9 @@ const W = {
     play: "Main muzik", pause: "Jeda muzik",
   },
   zh: {
+    offline: "您目前处于离线状态。这是您上次打开时的请柬。回复需要连接网络。",
+    passTitle: "您的入场凭证：请在门口出示", passAlt: (n) => `${n}的入场二维码`, passSeats: (n) => `${n}个座位`,
+    errQuick: "填得真快！请检查您的资料，然后再按一次发送。", errBusy: "目前回复较多，请几分钟后再试。",
     join: "您能出席吗？", replyBy: (d) => `请于${d}前回复。`, yes: "欣然出席", no: "遗憾无法出席",
     howMany: "共有几位出席？", upTo: (n) => `（最多${n}位）`, reserved: (n) => `（已为您保留${n}个座位）`,
     diet: "饮食需求", dietPh: "例如：素食、不吃海鲜", note: () => "给主人家的留言（选填）",
@@ -47,6 +56,9 @@ const W = {
     play: "播放音乐", pause: "暂停音乐",
   },
   ta: {
+    offline: "நீங்கள் இணைப்பில் இல்லை. கடைசியாகத் திறந்தபோது இருந்த அழைப்பு இது. பதிலளிக்க இணைய இணைப்பு தேவை.",
+    passTitle: "உங்கள் நுழைவுச் சீட்டு: வாசலில் காட்டவும்", passAlt: (n) => `${n} அவர்களுக்கான நுழைவு QR குறியீடு`, passSeats: (n) => `${n} இருக்கைகள்`,
+    errQuick: "மிக வேகம்! உங்கள் விவரங்களைச் சரிபார்த்து, மீண்டும் அனுப்பு என்பதை அழுத்தவும்.", errBusy: "இப்போது பல பதில்கள் வருகின்றன. சில நிமிடங்களில் மீண்டும் முயலவும்.",
     join: "நீங்கள் வருவீர்களா?", replyBy: (d) => `${d}க்குள் பதிலளிக்கவும்.`, yes: "மகிழ்வுடன் வருகிறேன்", no: "வருந்துகிறேன், வர இயலாது",
     howMany: "எத்தனை பேர் வருகிறீர்கள்?", upTo: (n) => `(அதிகபட்சம் ${n})`, reserved: (n) => `(உங்களுக்காக ${n} இருக்கைகள் ஒதுக்கப்பட்டுள்ளன)`,
     diet: "உணவுத் தேவைகள்", dietPh: "எ.கா. சைவம், கடல் உணவு வேண்டாம்", note: () => "விழா நடத்துபவர்களுக்கு ஒரு குறிப்பு (விருப்பம்)",

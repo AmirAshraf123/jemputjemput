@@ -43,6 +43,21 @@
     <div class="invs" id="invs">
       <p class="empty">Loading your invitations…</p>
     </div>
+
+    <section class="panel account" aria-labelledby="accTitle">
+      <h2 class="sec" id="accTitle">Your account</h2>
+      <details class="danger-zone" id="dangerZone">
+        <summary>Delete my account</summary>
+        <div class="dz-body">
+          <p>This deletes your account and everything in it for good: invitations, guest lists, replies, photos, music
+            and templates. Guests' links stop working.</p>
+          <p class="hint">Want a copy first? Each invitation's Guests tab has <b>Download CSV</b>.</p>
+          <label class="f">Type DELETE to confirm<input id="delConfirm" autocomplete="off" autocapitalize="characters"
+              spellcheck="false"></label>
+          <button type="button" class="btn danger" id="delAccount" disabled>Delete everything</button>
+        </div>
+      </details>
+    </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>

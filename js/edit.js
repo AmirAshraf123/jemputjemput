@@ -154,9 +154,11 @@ function renderTemplates() {
   $("mineWrap").hidden = !myTpls.length;
   $("mine").innerHTML = myTpls.map((t) => `<div class="tpl" role="button" tabindex="0" data-t="mine:${t.id}" aria-pressed="${inv.template === "mine:" + t.id}">${thumbHTML(t.style, t.name, ini)}
     <button type="button" class="x${confirmTpl === t.id ? " armed" : ""}" data-del="${t.id}" aria-label="Delete ${esc(t.name)}">${confirmTpl === t.id ? "Delete?" : "×"}</button>
-    ${shareReady ? `<button type="button" class="share-t" data-share="${t.id}" aria-pressed="${!!t.shared}" aria-label="${t.shared ? "Stop sharing" : "Share"} ${esc(t.name)} with everyone">${t.shared ? "Shared" : "Share"}</button>` : ""}</div>`).join("");
+    ${t.reported ? `<span class="share-t off" title="Several people reported this template, so it's no longer on the community list.">Not shared: reported</span>`
+      : shareReady ? `<button type="button" class="share-t" data-share="${t.id}" aria-pressed="${!!t.shared}" aria-label="${t.shared ? "Stop sharing" : "Share"} ${esc(t.name)} with everyone">${t.shared ? "Shared" : "Share"}</button>` : ""}</div>`).join("");
   $("pubWrap").hidden = !pubTpls.length;
-  $("pub").innerHTML = pubTpls.map((t) => `<button type="button" class="tpl pub" data-t="pub:${t.id}" aria-pressed="${inv.template === "pub:" + t.id}">${thumbHTML(t.style, t.name, ini)}<span class="by">by ${esc(t.author || "a Jemput designer")}</span></button>`).join("");
+  $("pub").innerHTML = pubTpls.map((t) => `<div class="tpl pub" role="button" tabindex="0" data-t="pub:${t.id}" aria-pressed="${inv.template === "pub:" + t.id}">${thumbHTML(t.style, t.name, ini)}<span class="by">by ${esc(t.author || "a Jemput designer")}</span>
+    <button type="button" class="x report${armedReport === t.id ? " armed" : ""}" data-report="${t.id}" aria-label="${armedReport === t.id ? "Confirm reporting" : "Report"} ${esc(t.name)}">${armedReport === t.id ? "Report it?" : "Report"}</button></div>`).join("");
   const changed = lookOf(cleanStyle(baseStyleOf(inv.template))) !== lookOf(inv.style);
   $("tplState").innerHTML = changed ? `<span class="tag">Customised from ${esc(baseName(inv.template))}</span>` : "";
   $("resetStyle").disabled = !changed;
@@ -790,17 +792,41 @@ $("mine").addEventListener("keydown", (e) => {
 });
 $("resetStyle").addEventListener("click", () => chooseTemplate(inv.template));
 async function loadTemplates() {
-  let { data, error } = await sb.from("templates").select("id, name, style, is_public, author").eq("owner", user.id).order("created_at");
+  // newest database first (with reports), then older ones without reports or sharing
+  let { data, error } = await sb.from("templates").select("id, name, style, is_public, author, reported").eq("owner", user.id).order("created_at");
+  if (error) ({ data, error } = await sb.from("templates").select("id, name, style, is_public, author").eq("owner", user.id).order("created_at"));
   if (error) { shareReady = false; ({ data } = await sb.from("templates").select("id, name, style").eq("owner", user.id).order("created_at")); }
-  myTpls = (data || []).map((t) => ({ id: t.id, name: String(t.name).slice(0, 40), style: cleanStyle(t.style), shared: !!t.is_public, author: t.author || "" }));
+  myTpls = (data || []).map((t) => ({ id: t.id, name: String(t.name).slice(0, 40), style: cleanStyle(t.style), shared: !!t.is_public, author: t.author || "", reported: !!t.reported }));
   const mineAuthor = myTpls.find((t) => t.author)?.author; if (mineAuthor && !$("tplAuthor").value) $("tplAuthor").value = mineAuthor;
   if (shareReady) {
     const r = await sb.from("templates").select("id, name, style, author").eq("is_public", true).neq("owner", user.id).order("published_at", { ascending: false }).limit(60);
-    pubTpls = (r.data || []).map((t) => ({ id: t.id, name: String(t.name).slice(0, 40), style: cleanStyle(t.style), author: String(t.author || "").slice(0, 60) }));
+    let mine = []; try { mine = JSON.parse(localStorage.getItem("jemput.reported") || "[]"); } catch { }
+    pubTpls = (r.data || []).filter((t) => !mine.includes(t.id))   // ones you reported disappear for you straight away
+      .map((t) => ({ id: t.id, name: String(t.name).slice(0, 40), style: cleanStyle(t.style), author: String(t.author || "").slice(0, 60) }));
   }
   renderTemplates();
 }
-$("pub").addEventListener("click", (e) => { const b = e.target.closest(".tpl"); if (b) chooseTemplate(b.dataset.t); });
+// Report a community template: press once to arm, again to send. Three reports from different people take it off the list.
+let armedReport = null;
+$("pub").addEventListener("click", async (e) => {
+  const r = e.target.closest("[data-report]");
+  if (r) {
+    const id = r.dataset.report;
+    if (armedReport !== id) { armedReport = id; renderTemplates(); $("pub").querySelector(`[data-report="${id}"]`)?.focus(); return; }
+    armedReport = null;
+    const { error } = await sb.rpc("report_template", { p_id: id, p_reason: "" });
+    if (error && /could not find|function/i.test(error.message)) { toast("Reporting needs a one-time database update: run supabase/006_safety_and_checkin.sql in Supabase's SQL Editor."); renderTemplates(); return; }
+    if (error) { toast("Couldn't send the report: " + error.message); renderTemplates(); return; }
+    try { const mine = JSON.parse(localStorage.getItem("jemput.reported") || "[]"); mine.push(id); localStorage.setItem("jemput.reported", JSON.stringify(mine)); } catch { }
+    pubTpls = pubTpls.filter((t) => t.id !== id); renderTemplates();
+    toast("Thanks for reporting it. You won't see it again, and it's removed for everyone if others report it too.");
+    return;
+  }
+  const b = e.target.closest(".tpl"); if (b) chooseTemplate(b.dataset.t);
+});
+$("pub").addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("tpl")) { e.preventDefault(); chooseTemplate(e.target.dataset.t); }
+});
 $("tplShare").addEventListener("change", (e) => {
   if (e.target.checked && !shareReady) { e.target.checked = false; toast("Sharing needs a one-time database update: run supabase/005_public_templates.sql in Supabase's SQL Editor."); return; }
   $("tplAuthorWrap").hidden = !e.target.checked; if (e.target.checked) $("tplAuthor").focus();
@@ -873,9 +899,26 @@ async function shrink(file) {
     return { blob, type: "image/jpeg", ar };
   } finally { URL.revokeObjectURL(url); }
 }
+/* iPhone photos (HEIC/HEIF) are turned into JPG in the browser first. The converter is large, so it only loads when needed. */
+const HEIC_LIB = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/+esm";
+const isHeic = (f) => /^image\/hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name || "");
+async function fromHeic(file, note) {
+  if (!isHeic(file)) return file;
+  note?.("Converting your iPhone photo…");
+  try {
+    const { default: heic2any } = await import(HEIC_LIB);
+    let out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    if (Array.isArray(out)) out = out[0];   // a Live Photo or burst gives several; use the first
+    return new File([out], (file.name || "photo").replace(/\.hei[cf]$/i, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    throw new Error("Couldn't convert that iPhone photo. Try sharing it as a JPG, or take a screenshot of it.");
+  }
+}
 async function handlePhoto(file) {
   if (!file) return;
-  if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { toast("Please choose a JPG, PNG or WebP photo. iPhone HEIC photos need converting first."); return; }
+  try { file = await fromHeic(file, (t) => { $("photoNote").textContent = t; }); }
+  catch (err) { $("photoNote").textContent = "Or drag one here."; toast(err.message); return; }
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { toast("Please choose a JPG, PNG, WebP or iPhone (HEIC) photo."); return; }
   photoBusy = true; $("photoNote").textContent = "Uploading…"; fillPhoto();
   const old = inv.photo;
   try {
@@ -1049,7 +1092,7 @@ function renderGuests() {
         ${g.dup_reason ? `<div class="dup"><span>Possible duplicate: ${esc(g.dup_reason)}</span> <button class="linkbtn" data-act="notdup" data-id="${g.id}">Not a duplicate</button></div>` : ""}</td>
       <td class="g-side${g.side ? "" : " is-empty"}" data-label="${usesSides() ? "Side" : "Group"}">${esc(sideText(g.side)) || "—"}</td>
       <td class="num g-seats" data-label="Seats">${g.status === "yes" ? `${g.coming} of ${g.seats}` : g.seats}</td>
-      <td class="g-reply"><span class="pill ${esc(g.status)}">${label[g.status] || "Waiting"}</span></td>
+      <td class="g-reply"><span class="pill ${esc(g.status)}">${label[g.status] || "Waiting"}</span>${g.checked_in_at ? `<div class="arrived">Arrived ${esc(clock(g.checked_in_at))}</div>` : ""}</td>
       <td class="g-notes">${g.dietary ? `<div>${esc(g.dietary)}</div>` : ""}${g.note ? `<div class="sub">“${esc(g.note)}”</div>` : ""}</td>
       <td class="g-acts"><div class="acts">
         ${wa ? `<a class="btn sm" href="https://wa.me/${wa}?text=${encodeURIComponent(inviteText(g))}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
@@ -1126,11 +1169,11 @@ $("addForm").addEventListener("submit", async (e) => {
   addedToast([row.name], withoutGroup);
 });
 $("csv").addEventListener("click", () => {
-  const head = ["Name", "Phone", usesSides() ? "Side" : "Group", "Seats", "Reply", "Coming", "Dietary", "Note", "Replied at", "Added by", "Possible duplicate", "Invitation link"];
+  const head = ["Name", "Phone", usesSides() ? "Side" : "Group", "Seats", "Reply", "Coming", "Dietary", "Note", "Replied at", "Added by", "Possible duplicate", "Invitation link", "Arrived"];
   const label = { yes: "Coming", no: "Can't make it", pending: "Waiting" };
   const rows = guests.map((g) => [g.name, g.phone, sideText(g.side), g.seats, label[g.status], g.coming, g.dietary, g.note,
   g.responded_at ? new Date(g.responded_at).toLocaleString("en-SG") : "", g.source === "group" ? "Group link" : "You",
-  g.dup_reason || "", guestLink(g)]);
+  g.dup_reason || "", guestLink(g), g.checked_in_at ? new Date(g.checked_in_at).toLocaleString("en-SG") : ""]);
   const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
@@ -1155,7 +1198,8 @@ const fdContext = {
 // Your own pictures for the card: PNG, WebP or JPG kept as they are (resized if huge); SVG turned into a PNG here,
 // so only plain pictures are ever stored.
 async function uploadDecoration(file) {
-  if (!/^image\/(png|webp|jpeg|svg\+xml)$/.test(file.type)) throw new Error("Please choose a PNG, SVG, WebP or JPG picture.");
+  file = await fromHeic(file);
+  if (!/^image\/(png|webp|jpeg|svg\+xml)$/.test(file.type)) throw new Error("Please choose a PNG, SVG, WebP, JPG or iPhone (HEIC) picture.");
   if (file.size > 10e6) throw new Error("That picture is over 10 MB. Please use a smaller one.");
   const url = URL.createObjectURL(file);
   try {
@@ -1359,4 +1403,187 @@ $("sTpls").addEventListener("keydown", (e) => {
   const list = [...$("sTpls").children], i = list.indexOf(document.activeElement); if (i < 0) return;
   const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1 }[e.key]; if (j === undefined) return;
   e.preventDefault(); const b = list[(j + list.length) % list.length]; b.click(); b.focus();
+});
+
+
+/* ---------- import guests from a spreadsheet (CSV file, or rows pasted from Excel / Google Sheets) ---------- */
+// Splits CSV or tab-separated text into rows of cells, handling "quoted, values" and doubled quotes.
+function parseTable(text) {
+  text = text.replace(/^\uFEFF/, "");
+  const first = text.split(/\r?\n/).find((l) => l.trim()) || "";
+  const sep = first.includes("\t") ? "\t" : (first.split(";").length > first.split(",").length ? ";" : ",");
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"' && !cell) q = true;
+    else if (ch === sep) { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.map((r) => r.map((c) => c.trim())).filter((r) => r.some(Boolean));
+}
+const normPhone = (p) => { let d = String(p || "").replace(/\D/g, ""); if (d.length === 8) d = "65" + d; return d; };
+const normName = (n) => String(n || "").toLowerCase().replace(/\s+/g, "");
+// Which column is which: from a heading row if there is one (English or Malay), otherwise Name, Phone, Seats, Side.
+function columnsOf(rows) {
+  const h = rows[0].map((c) => c.toLowerCase());
+  const find = (re) => h.findIndex((c) => re.test(c));
+  const cols = { name: find(/^(name|nama|guest|tetamu|household)/), phone: find(/phone|whatsapp|number|telefon|no\.? ?tel|mobile|hp/), seats: find(/seat|pax|tempat|bilangan|people|orang/), side: find(/side|group|pihak|kumpulan/) };
+  if (cols.name >= 0) return { cols, start: 1 };
+  return { cols: { name: 0, phone: 1, seats: 2, side: 3 }, start: 0 };
+}
+function sideFrom(v) {
+  if (!usesSides()) return String(v || "").slice(0, 40);
+  const t = String(v || "").toLowerCase();
+  if (/groom|lelaki|\bl\b|husband|male/.test(t)) return "Groom";
+  if (/bride|perempuan|\bp\b|wife|female/.test(t)) return "Bride";
+  return "Both";
+}
+let importRows = [];
+function readImport() {
+  const rows = parseTable($("impText").value);
+  importRows = [];
+  if (!rows.length) { $("impPreview").innerHTML = ""; $("impGo").disabled = true; $("impDupWrap").hidden = true; return; }
+  const { cols, start } = columnsOf(rows);
+  const phones = new Set(guests.map((g) => normPhone(g.phone)).filter((p) => p.length >= 8)), names = new Set(guests.map((g) => normName(g.name)));
+  let noName = 0;
+  for (const r of rows.slice(start)) {
+    const name = (r[cols.name] || "").slice(0, 120);
+    if (!name) { noName++; continue; }
+    const phone = cols.phone >= 0 ? (r[cols.phone] || "").slice(0, 40) : "";
+    const seats = Math.round(clamp(parseInt(cols.seats >= 0 ? r[cols.seats] : "", 10) || 2, 1, 50, 2));
+    const p = normPhone(phone), n = normName(name);
+    const dup = (p.length >= 8 && phones.has(p)) ? "same number as someone on your list" : names.has(n) ? "same name as someone on your list" : "";
+    importRows.push({ name, phone, seats, side: sideFrom(cols.side >= 0 ? r[cols.side] : ""), dup });
+    if (p.length >= 8) phones.add(p); names.add(n);   // catches repeats inside the file too
+  }
+  const dups = importRows.filter((x) => x.dup).length, fresh = importRows.length - dups;
+  const show = importRows.slice(0, 6);
+  $("impPreview").innerHTML = `<p><b>${fresh} ${fresh === 1 ? "household" : "households"} ready to add</b>${dups ? ` · ${dups} possible ${dups === 1 ? "duplicate" : "duplicates"}` : ""}${noName ? ` · ${noName} ${noName === 1 ? "row" : "rows"} without a name skipped` : ""}</p>`
+    + (show.length ? `<div class="tablewrap"><table><thead><tr><th>Name</th><th>Number</th><th>Seats</th><th>${usesSides() ? "Side" : "Group"}</th></tr></thead><tbody>${show.map((x) => `<tr${x.dup ? ' class="dup"' : ""}><td>${esc(x.name)}${x.dup ? `<div class="sub">Possible duplicate: ${esc(x.dup)}</div>` : ""}</td><td>${esc(x.phone)}</td><td>${x.seats}</td><td>${esc(sideText(x.side))}</td></tr>`).join("")}</tbody></table></div>${importRows.length > 6 ? `<p class="hint">…and ${importRows.length - 6} more</p>` : ""}` : "");
+  $("impDupWrap").hidden = !dups;
+  $("impGo").disabled = !(fresh || ($("impDups").checked && dups));
+  const n = fresh + ($("impDups").checked ? dups : 0);
+  $("impGo").textContent = n ? `Add ${n} ${n === 1 ? "guest" : "guests"}` : "Add guests";
+}
+$("importBtn").addEventListener("click", () => {
+  $("impSideWord").textContent = usesSides() ? "Side (Groom, Bride or Both)" : "Group";
+  $("impText").value = ""; readImport(); $("importDlg").showModal(); $("impText").focus();
+});
+$("impCancel").addEventListener("click", () => $("importDlg").close());
+$("impText").addEventListener("input", readImport);
+$("impDups").addEventListener("change", readImport);
+$("impFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (f.size > 2e6) { toast("That file is over 2 MB. Please split it into smaller files."); return; }
+  if (/\.xlsx?$/i.test(f.name)) { toast("Please save the spreadsheet as CSV first (File → Download or Save As → CSV), or copy the rows and paste them in."); return; }
+  $("impText").value = await f.text(); readImport();
+});
+$("impTemplate").addEventListener("click", (e) => {
+  e.preventDefault();
+  const sample = usesSides()
+    ? "Name,WhatsApp number,Seats,Side\r\nAuntie Rosnah & family,9123 4567,4,Bride\r\nUncle Lim,9876 5432,2,Groom\r\n"
+    : "Name,WhatsApp number,Seats,Group\r\nAuntie Rosnah & family,9123 4567,4,Family\r\nDaniel Tan,9876 5432,1,Work\r\n";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\uFEFF" + sample], { type: "text/csv" })); a.download = "jemput-guest-list-sample.csv"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("impForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const rows = importRows.filter((x) => !x.dup || $("impDups").checked)
+    .map(({ name, phone, seats, side }) => ({ invitation_id: inv.id, name, phone, seats, side }));
+  if (!rows.length) return;
+  $("impGo").disabled = true; $("impGo").textContent = "Adding…";
+  let added = 0, withoutGroup = false;
+  for (let i = 0; i < rows.length; i += 100) {
+    const res = await insertGuests(rows.slice(i, i + 100));
+    if (res.error) { toast(`Couldn't add all of them (${added} added): ` + res.error.message); break; }
+    for (const g of res.data) if (!guests.some((x) => x.id === g.id)) guests.push(g);
+    added += res.data.length; withoutGroup ||= res.withoutGroup;
+  }
+  renderSideControls(); renderGuests(); renderReady();
+  $("importDlg").close();
+  if (added) toast(`Added ${added} ${added === 1 ? "guest" : "guests"}. Send each one their link from the list below.` + (withoutGroup ? NEEDS_UPDATE : ""));
+});
+
+
+/* ---------- check-in on the day: scan entry passes, or find guests by name ---------- */
+const JSQR_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/+esm";
+const clock = (t) => new Date(t).toLocaleTimeString("en-SG", { hour: "numeric", minute: "2-digit" });
+let camStream = null, scanTimer = null, scanPause = 0;
+function renderCheckin() {
+  const coming = guests.filter((g) => g.status === "yes"), here = guests.filter((g) => g.checked_in_at);
+  const people = here.reduce((a, g) => a + (g.status === "yes" ? g.coming : g.seats || 1), 0), expected = coming.reduce((a, g) => a + g.coming, 0);
+  $("ckCount").innerHTML = `<b>${here.length}</b> of ${coming.length} households here · <b>${people}</b> of ${expected} people`;
+  const q = $("ckSearch").value.trim().toLowerCase();
+  const list = q ? guests.filter((g) => g.name.toLowerCase().includes(q)).slice(0, 8) : [];
+  $("ckList").innerHTML = list.map((g) => `<li><div><b>${esc(g.name)}</b><div class="sub">${g.status === "yes" ? `Coming · ${g.coming} ${g.coming === 1 ? "seat" : "seats"}` : g.status === "no" ? "Said they can't make it" : "Hasn't replied"}</div></div>
+    ${g.checked_in_at ? `<span class="arrived">Arrived ${esc(clock(g.checked_in_at))}</span><button type="button" class="btn sm ghost" data-ck-undo="${g.id}">Undo</button>`
+      : `<button type="button" class="btn sm" data-ck="${g.id}">Check in</button>`}</li>`).join("") || (q ? `<li class="hint">No one called "${esc(q)}" on the list.</li>` : "");
+}
+async function setArrived(g, on) {
+  const at = on ? new Date().toISOString() : null;
+  const { error } = await sb.from("guests").update({ checked_in_at: at }).eq("id", g.id);
+  if (error) {
+    toast(/checked_in_at/.test(error.message) ? "Check-in needs a one-time database update: run supabase/006_safety_and_checkin.sql in Supabase's SQL Editor." : "Couldn't save the check-in: " + error.message);
+    return false;
+  }
+  g.checked_in_at = at; renderCheckin(); renderGuests(); return true;
+}
+function showResult(kind, html) { $("ckResult").className = "ck-result " + kind; $("ckResult").innerHTML = html; }
+// a scanned code: the guest's own link (or just its code)
+async function onScan(text) {
+  const tok = (String(text).match(/#?([a-f0-9]{32})(?:\/preview)?\s*$/i) || [])[1];
+  const g = tok && guests.find((x) => x.token === tok);
+  if (!g) { showResult("bad", "<b>Not on this guest list.</b> Try finding them by name."); navigator.vibrate?.([60, 60, 60]); return; }
+  if (g.checked_in_at) { showResult("warn", `<b>${esc(g.name)}</b> already checked in at ${esc(clock(g.checked_in_at))}.`); return; }
+  if (await setArrived(g, true)) {
+    navigator.vibrate?.(120);
+    showResult("ok", `<b>Welcome, ${esc(g.name)}!</b> ${g.status === "yes" ? `${g.coming} ${g.coming === 1 ? "seat" : "seats"}` : g.status === "no" ? "They'd said they couldn't come." : "They hadn't replied."}${g.dietary ? ` · ${esc(g.dietary)}` : ""} <button type="button" class="btn sm ghost" data-ck-undo="${g.id}">Undo</button>`);
+  }
+}
+async function startCamera() {
+  if (!navigator.mediaDevices?.getUserMedia) { toast("This browser can't use the camera. Find guests by name instead."); return; }
+  try { camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }); }
+  catch { toast("Camera not available. Allow camera access for this site, or find guests by name."); return; }
+  const v = $("ckVideo"); v.srcObject = camStream; await v.play().catch(() => { });
+  $("ckStart").hidden = true; v.classList.add("on");
+  // the phone's own QR reader where there is one, otherwise a small library
+  let detect;
+  if ("BarcodeDetector" in window && (await BarcodeDetector.getSupportedFormats?.().catch(() => []) || []).includes("qr_code")) {
+    const bd = new BarcodeDetector({ formats: ["qr_code"] });
+    detect = async () => (await bd.detect(v))[0]?.rawValue;
+  } else {
+    const { default: jsQR } = await import(JSQR_LIB);
+    const c = document.createElement("canvas"), g = c.getContext("2d", { willReadFrequently: true });
+    detect = async () => {
+      if (!v.videoWidth) return null;
+      const k = Math.min(1, 640 / v.videoWidth); c.width = v.videoWidth * k; c.height = v.videoHeight * k;
+      g.drawImage(v, 0, 0, c.width, c.height);
+      return jsQR(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height)?.data;
+    };
+  }
+  scanTimer = setInterval(async () => {
+    if (Date.now() < scanPause || !camStream) return;
+    const code = await detect().catch(() => null);
+    if (code) { scanPause = Date.now() + 2500; onScan(code); }   // a short pause so one pass isn't read twice
+  }, 250);
+}
+function stopCamera() {
+  clearInterval(scanTimer); scanTimer = null;
+  camStream?.getTracks().forEach((t) => t.stop()); camStream = null;
+  $("ckVideo").classList.remove("on"); $("ckStart").hidden = false;
+}
+$("checkinBtn").addEventListener("click", () => { $("ckSearch").value = ""; showResult("", ""); renderCheckin(); $("checkDlg").showModal(); $("ckStart").focus(); });
+$("ckStart").addEventListener("click", startCamera);
+$("ckClose").addEventListener("click", () => $("checkDlg").close());
+$("checkDlg").addEventListener("close", stopCamera);
+$("ckSearch").addEventListener("input", renderCheckin);
+$("checkDlg").addEventListener("click", async (e) => {
+  const a = e.target.closest("[data-ck]"), u = e.target.closest("[data-ck-undo]");
+  const g = guests.find((x) => x.id === (a || u)?.dataset[a ? "ck" : "ckUndo"]); if (!g) return;
+  if (a) { if (await setArrived(g, true)) showResult("ok", `<b>${esc(g.name)}</b> checked in.`); }
+  else if (await setArrived(g, false)) showResult("", `${esc(g.name)} is no longer checked in.`);
 });

@@ -55,6 +55,9 @@ flowchart LR
 - **Forgiving setup.** People paste their Supabase URL with a trailing slash, `/rest/v1/`, or a dashboard link instead. `js/base-url.js` normalises all of these, so a copy-paste slip doesn't stop sign-in.
 - **Two languages without a longer card.** Stacking a translation under every line doubled the card's length. The card now shows one language at a time with a switch for guests, and opens in the guest's phone language when it matches. The standard wording for each occasion has hand-written translations, dates use the browser's own `Intl` formatting for each language, and anything else goes through a free translation API. Each saved translation remembers the wording it was made from, so the editor can flag it when the original changes.
 - **A design layer that survives every screen.** Stickers and text boxes are stored as positions and widths in percent of the card, with font sizes in container query units (`cqw`), so the same design looks right in the editor, on a phone, in the 1080px export and in the 300 dpi PDF. Stickers are one-colour SVGs used as CSS masks, which is what lets any of them take a flat colour or a foil gradient.
+- **Safety without paid services.** Spam on group links is stopped inside Postgres: the reply function reads the caller's IP address from the request headers Supabase passes through, and allows 8 replies per 10 minutes per connection and 60 per link. Shared templates are hidden after three different people report them, and a trigger stops owners from clearing that flag. People can delete their own account, which removes their files from storage and then cascades through every table.
+- **Check-in on the day.** Each guest who accepts gets an entry pass, a QR code of their own link. The host's phone scans it using the browser's built-in `BarcodeDetector` where there is one, or the `jsQR` library where there isn't.
+- **Works without signal.** A service worker keeps the site's files, fonts and photos, and the guest page keeps the last invitation it opened, so a guest at a venue with no reception can still see the card and the address.
 - **Free-tier realities.** A scheduled ping (`.github/workflows/keep-awake.yml`) stops the free database from pausing, which would otherwise break guest links in the middle of RSVP season.
 
 ## Project structure
@@ -82,7 +85,6 @@ It takes about 15 minutes with free Supabase and Netlify accounts. See **[docs/S
 
 - Per-invitation WhatsApp link previews showing the couple's names and photo, using a small server function.
 - Separate RSVPs for multiple events, such as the akad nikah, tea ceremony and reception.
-- Converting iPhone HEIC photos in the browser.
 - A one-tap reminder message to everyone who hasn't replied.
 
 ## Licence
