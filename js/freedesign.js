@@ -20,7 +20,6 @@ export function setupFreeDesign(ctx) {
   // ctx: { $, getStyle, setStyle(style, save), toast, upload(file) → {path, ar}, phone (MediaQueryList), announce(msg) }
   const { $ } = ctx;
   let on = false, sel = null, cat = "floral", snapOn = true, layersSig = "", propsFor = "";
-  try { on = localStorage.getItem("jemput.freeDesign") === "1"; } catch {}
   const layers = () => ctx.getStyle().layers;
   const find = (id) => layers().find((x) => x.id === id);
   const commit = (list, save = true) => ctx.setStyle({ ...ctx.getStyle(), layers: list }, save);
@@ -51,11 +50,10 @@ export function setupFreeDesign(ctx) {
     catch (err) { ctx.toast(err.message || "Couldn't add that picture."); }
     finally { $("fdUploadLabel").classList.remove("busy"); }
   });
-  $("fdOn").addEventListener("change", (e) => setOn(e.target.checked));
   $("fdSnap").addEventListener("change", (e) => { snapOn = e.target.checked; });
   function setOn(v) {
+    if (on === v) return;
     on = v; $("fdOn").checked = v; $("fdTools").hidden = !v;
-    try { localStorage.setItem("jemput.freeDesign", v ? "1" : ""); } catch {}
     if (!v) sel = null;
     refresh(true); decorate();
   }
@@ -117,7 +115,7 @@ export function setupFreeDesign(ctx) {
         </div>
         <button type="button" class="btn sm ghost" data-act="namesColour">Use the names colour</button>`
       : x.type === "image" ? `<label class="f">Filter<select data-p="filter">${opts(FILTERS)}</select></label>`
-      : `
+        : `
         <label class="f">Text<textarea id="fdText" data-p="text" maxlength="200" rows="2"></textarea></label>
         <div class="row">
           <label class="f">Font<select data-p="font">${fontOpts}</select></label>
@@ -349,6 +347,6 @@ export function setupFreeDesign(ctx) {
     refresh: () => refresh(false),
     get on() { return on; },
     get selected() { return sel; },
-    init() { if (layers().length && !on) setOn(true); else setOn(on); },
+    setOn,
   };
 }

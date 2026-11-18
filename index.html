@@ -28,49 +28,81 @@
     <div class="wrap">
       <a class="brand" href="index.html"><img src="img/logo.svg" width="34" height="34"
           alt=""><b>Jemput</b><span>invitations &amp; RSVPs</span></a>
-      <div class="hdr-right"><a class="btn ghost sm" id="goApp" href="app.html" hidden>Your invitations</a></div>
+      <div class="hdr-right"><a class="btn ghost sm" id="goApp" href="app.html" hidden>Your invitations</a><a
+          class="btn ghost sm" id="goSignin" href="#signinWrap">Sign in</a></div>
     </div>
   </header>
 
   <main class="wrap">
     <section class="hero">
-      <div>
-        <h1>Your invitation, your guest list, every reply in one place</h1>
-        <p class="lead">Design an invitation for a wedding, birthday, aqiqah or open house, send each guest their own
-          link on WhatsApp, and watch the RSVPs come in. No more chasing replies in group chats.</p>
-        <form class="signin" id="signin">
-          <button type="button" class="btn google" id="google">
-            <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
-              <path fill="#EA4335"
-                d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.6 17.7 9.5 24 9.5z" />
-              <path fill="#4285F4"
-                d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.8c4.3-4 6.9-9.9 6.9-17.2z" />
-              <path fill="#FBBC05"
-                d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.3.8-4.7l-7.8-6C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6z" />
-              <path fill="#34A853"
-                d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.8 6C6.6 42.6 14.6 48 24 48z" />
-            </svg>
-            Continue with Google
-          </button>
-          <div class="or"><span>or use your email</span></div>
-          <label class="f" for="email">Email address</label>
+      <div class="hero-text">
+        <h1>Invitations with the replies built in</h1>
+        <p class="lead">Design it, send each guest their own link on WhatsApp, and watch the RSVPs arrive.</p>
+        <form class="try" id="try" aria-labelledby="tryTitle">
+          <h2 class="try-h" id="tryTitle">Try it now, no account needed</h2>
+          <label class="f">Occasion<select id="tOcc"></select></label>
           <div class="row">
-            <input id="email" type="email" required autocomplete="email" placeholder="you@example.com">
-            <button class="btn" type="submit" id="sendLink">Email me a sign-in link</button>
+            <label class="f"><span id="tl1">First name</span><input id="tName1" maxlength="60"
+                autocomplete="off"></label>
+            <label class="f" id="tName2Wrap"><span id="tl2">Second name</span><input id="tName2" maxlength="60"
+                autocomplete="off"></label>
           </div>
-          <p class="hint" id="signinNote">No password needed. We'll email you a link that signs you in.</p>
+          <label class="f">Date<input type="date" id="tDate"></label>
+          <fieldset class="try-looks">
+            <legend>Look</legend>
+            <div class="try-tpls" id="tTpls" role="radiogroup" aria-label="Look"></div>
+          </fieldset>
+          <button type="submit" class="btn big" id="trySave">Save and send it</button>
         </form>
       </div>
-      <div id="sample"></div>
+      <div class="hero-card">
+        <div id="sample" aria-label="Your card so far" role="img"></div>
+      </div>
     </section>
 
-    <section class="points">
-      <div><b>Fifteen templates, or your own</b><span>Weddings, birthdays, baby celebrations, open houses and more. Pick
-          a look, then change fonts, colours, borders and photos until it feels like yours.</span></div>
-      <div><b>A personal link for every guest</b><span>Each household gets an invitation with their name on it and only
-          the seats you gave them.</span></div>
-      <div><b>Replies that count themselves</b><span>See who's coming, dietary needs and notes the moment guests reply.
-          Download the list for your caterer.</span></div>
+    <section class="steps3" aria-label="How it works">
+      <div><svg viewBox="0 0 48 48" aria-hidden="true">
+          <rect x="10" y="4" width="28" height="40" rx="3" fill="none" stroke="currentColor" stroke-width="2.5" />
+          <path d="M17 16h14M19 22h10M16 32h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+          <path d="M24 9l1.5 3 3 .4-2.2 2 .6 3-2.9-1.5-2.9 1.5.6-3-2.2-2 3-.4z" fill="currentColor" />
+        </svg><b>Design</b><span>Pick a look and make it yours.</span></div>
+      <div><svg viewBox="0 0 48 48" aria-hidden="true">
+          <path d="M8 38l3-9A16 16 0 1 1 18 36z" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linejoin="round" />
+          <path d="M18 20h14M18 26h9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+        </svg><b>Send</b><span>Each guest gets their own link.</span></div>
+      <div><svg viewBox="0 0 48 48" aria-hidden="true">
+          <rect x="6" y="6" width="36" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="2.5" />
+          <path d="M13 18l3 3 6-6M13 32l3 3 6-6M27 18h9M27 32h9" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" />
+        </svg><b>Track</b><span>Replies count themselves.</span></div>
+    </section>
+
+    <section class="panel signin-wrap" id="signinWrap" aria-labelledby="signinTitle">
+      <h2 class="sec" id="signinTitle">Sign in to save and send</h2>
+      <p class="hint" id="draftNote" hidden>Your card is kept. It'll be waiting after you sign in.</p>
+      <form class="signin" id="signin">
+        <button type="button" class="btn google" id="google">
+          <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
+            <path fill="#EA4335"
+              d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.6 17.7 9.5 24 9.5z" />
+            <path fill="#4285F4"
+              d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.8c4.3-4 6.9-9.9 6.9-17.2z" />
+            <path fill="#FBBC05"
+              d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.3.8-4.7l-7.8-6C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6z" />
+            <path fill="#34A853"
+              d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.8 6C6.6 42.6 14.6 48 24 48z" />
+          </svg>
+          Continue with Google
+        </button>
+        <div class="or"><span>or use your email</span></div>
+        <label class="f" for="email">Email address</label>
+        <div class="row">
+          <input id="email" type="email" required autocomplete="email" placeholder="you@example.com">
+          <button class="btn" type="submit" id="sendLink">Email me a link</button>
+        </div>
+        <p class="hint" id="signinNote" role="status">No password needed.</p>
+      </form>
     </section>
     <footer class="site-foot"><span>© 2026 Jemput</span><a href="privacy.html">Privacy policy</a></footer>
   </main>

@@ -4,7 +4,8 @@
 // Add "/preview" to either to see it without being able to reply.
 import { sb, $, toast } from "./sb.js";
 import { playFall, bloom } from "./effects.js";
-import { cardHTML, langSwitchHTML, cleanDetails, cleanStyle, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord, initialsFor, musicUrl, mix } from "./card.js";
+import { words } from "./words.js";
+import { cardHTML, langSwitchHTML, translated, cleanDetails, cleanStyle, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord, initialsFor, musicUrl, mix } from "./card.js";
 
 const params = new URLSearchParams(location.search);
 const parts = location.hash.slice(1).split("/");
@@ -15,6 +16,8 @@ let token = isGroup ? "" : (parts[0] || params.get("g") || "").replace(/[^a-f0-9
 
 let inv = null, guest = null, draft = null, maxSeats = 1, openingDone = false, music = null;
 let lang = "";   // which language the card is showing, for two-language cards
+const w = (key, ...a) => words(lang, key, ...a);   // the page's wording in that language
+let replyBtn = null, rsvpSeen = false;            // the floating Reply button
 let mode = "personal";   // "personal": replying as a known guest; "group": filling in the group form
 
 watchPhotos();
@@ -57,6 +60,7 @@ async function loadPersonal(t) {
 function setTitle() {
   const d = cleanDetails(inv.details);
   document.title = `You're invited · ${eventTitle(d)}`;
+  $("pageTitle").textContent = `Invitation: ${eventTitle(d)}`;
 }
 
 function notFound(err, group) {
@@ -90,24 +94,30 @@ $("langSw").addEventListener("click", (e) => {
   const b = e.target.closest("[data-lang]"); if (!b || b.dataset.lang === lang) return;
   lang = b.dataset.lang;
   try { localStorage.setItem("jemput.lang", lang); } catch { }
-  renderCard();
+  if (draft) readDraft();
+  renderCard(); renderDetails(); renderRsvp(); document.documentElement.lang = lang;
   $("langSw").querySelector(`[data-lang="${lang}"]`)?.focus();
 });
 
-function render() {
-  const d = cleanDetails(inv.details);
-  renderCard();
-  const place = [d.venue, d.address].filter(Boolean).join(", ");
+function renderDetails() {
+  const d = cleanDetails(inv.details), second = lang && lang === d.lang2;
+  const T = (k) => (second && d[k] ? translated(d[k], d.tr[k], d).text : d[k]);
+  const place = [d.venue, d.address].filter(Boolean).join(", ");   // maps search with the original address
   const map = place ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(place) : "";
   $("details").hidden = false;
   $("details").innerHTML = `<dl>
-      ${d.date ? `<dt>Date</dt><dd>${esc(fmtDate(d.date))}</dd>` : ""}
-      ${timeRange(d) ? `<dt>Time</dt><dd>${esc(timeRange(d))}</dd>` : ""}
-      ${d.venue || d.address ? `<dt>Venue</dt><dd>${esc(d.venue)}${d.address ? `<div class="sub">${esc(d.address)}</div>` : ""}</dd>` : ""}
-      ${d.dress ? `<dt>Dress</dt><dd>${esc(d.dress)}</dd>` : ""}
+      ${d.date ? `<dt>${w("date")}</dt><dd>${esc(fmtDate(d.date, lang))}</dd>` : ""}
+      ${timeRange(d) ? `<dt>${w("time")}</dt><dd>${esc(timeRange(d, lang))}</dd>` : ""}
+      ${d.venue || d.address ? `<dt>${w("venue")}</dt><dd>${esc(T("venue"))}${d.address ? `<div class="sub">${esc(T("address"))}</div>` : ""}</dd>` : ""}
+      ${d.dress ? `<dt>${w("dress")}</dt><dd>${esc(T("dress"))}</dd>` : ""}
     </dl>
-    <div class="links">${map ? `<a class="btn ghost sm" href="${map}" target="_blank" rel="noopener">Open in Maps</a>` : ""}
-    ${d.date ? `<a class="btn ghost sm" href="${calLink(d)}" target="_blank" rel="noopener">Add to Google Calendar</a>` : ""}</div>`;
+    <div class="links">${map ? `<a class="btn ghost sm" href="${map}" target="_blank" rel="noopener">${w("maps")}</a>` : ""}
+    ${d.date ? `<a class="btn ghost sm" href="${calLink(d)}" target="_blank" rel="noopener">${w("cal")}</a>` : ""}</div>`;
+}
+function render() {
+  renderCard();
+  document.documentElement.lang = lang || "en";
+  renderDetails();
   renderRsvp();
   if (!openingDone) { openingDone = true; setupMusic(); setupOpening(); }
 }
@@ -118,10 +128,11 @@ function renderRsvp() {
 
   // Already replied: show the answer, with a way to change it.
   if (mode === "personal" && g.status !== "pending" && !draft) {
-    el.innerHTML = `<div class="thanks"><h3>${g.status === "yes" ? "See you there!" : "Thank you for letting us know"}</h3>
-      <p class="sub">${g.status === "yes" ? `We've saved ${g.coming} ${g.coming === 1 ? "seat" : "seats"} for you.` : "You'll be missed."}</p>
-      <button class="btn ghost" id="change">Change my reply</button>
-      ${isGroup ? `<button class="linkbtn" id="someoneElse">Not ${esc(g.name)}? Reply for someone else</button>` : ""}</div>`;
+    el.innerHTML = `<div class="thanks"><h3>${g.status === "yes" ? w("seeYou") : w("thanksNo")}</h3>
+      <p class="sub">${g.status === "yes" ? w("saved", g.coming) : w("missed")}</p>
+      <button class="btn ghost" id="change">${w("change")}</button>
+      ${isGroup ? `<button class="linkbtn" id="someoneElse">${esc(w("someoneElse", g.name))}</button>` : ""}</div>`;
+    replyButton();
     $("change").onclick = () => { draft = { status: g.status, coming: g.coming || 1, dietary: g.dietary || "", note: g.note || "" }; renderRsvp(); };
     if (isGroup) $("someoneElse").onclick = replyForSomeoneElse;
     return;
@@ -129,23 +140,24 @@ function renderRsvp() {
 
   const groupForm = mode === "group";
   draft ||= { status: "", coming: groupForm ? 1 : maxSeats, dietary: "", note: "", name: "", phone: "" };
-  const seatHint = groupForm ? `(up to ${maxSeats})` : `(${maxSeats} ${maxSeats === 1 ? "seat" : "seats"} reserved for you)`;
-  el.innerHTML = `<h3>Will you join us?</h3>
-    ${d.rsvpBy ? `<p class="sub" style="margin:0">Please reply by ${esc(fmtDate(d.rsvpBy))}.</p>` : ""}
+  const seatHint = groupForm ? w("upTo", maxSeats) : w("reserved", maxSeats);
+  el.innerHTML = `<h3 id="rsvpTitle">${w("join")}</h3>
+    ${d.rsvpBy ? `<p class="sub" style="margin:0">${esc(w("replyBy", fmtDate(d.rsvpBy, lang)))}</p>` : ""}
     ${groupForm ? `
-      <label class="f">Your name<input id="rName" maxlength="120" autocomplete="name" value="${esc(draft.name)}" placeholder="e.g. Daniel Tan"></label>
-      <label class="f">Your WhatsApp number<input id="rPhone" type="tel" inputmode="tel" maxlength="40" autocomplete="tel" value="${esc(draft.phone)}" placeholder="9123 4567"></label>
-      <p class="hint">Your number is only shared with ${esc(hostWord(d))}, so they know who replied. Reply once per household.</p>` : ""}
-    <div class="choice"><button type="button" class="y" data-s="yes" aria-pressed="${draft.status === "yes"}">Joyfully accept</button>
-      <button type="button" class="n" data-s="no" aria-pressed="${draft.status === "no"}">Regretfully decline</button></div>
+      <label class="f">${w("name")}<input id="rName" maxlength="120" autocomplete="name" value="${esc(draft.name)}" placeholder="e.g. Daniel Tan"></label>
+      <label class="f">${w("phone")}<input id="rPhone" type="tel" inputmode="tel" maxlength="40" autocomplete="tel" value="${esc(draft.phone)}" placeholder="9123 4567"></label>
+      <p class="hint">${esc(w("numberNote", hostWord(d)))}</p>` : ""}
+    <div class="choice"><button type="button" class="y" data-s="yes" aria-pressed="${draft.status === "yes"}">${w("yes")}</button>
+      <button type="button" class="n" data-s="no" aria-pressed="${draft.status === "no"}">${w("no")}</button></div>
     <div ${draft.status === "yes" ? "" : "hidden"} style="display:grid;gap:12px">
-      <label class="f">How many of you are coming? <span class="sub">${seatHint}</span>
+      <label class="f">${w("howMany")} <span class="sub">${seatHint}</span>
         <select id="rComing">${Array.from({ length: maxSeats }, (_, i) => `<option ${i + 1 === +draft.coming ? "selected" : ""}>${i + 1}</option>`).join("")}</select></label>
-      <label class="f">Dietary needs<input id="rDiet" maxlength="200" value="${esc(draft.dietary)}" placeholder="e.g. vegetarian, no seafood"></label>
+      <label class="f">${w("diet")}<input id="rDiet" maxlength="200" value="${esc(draft.dietary)}" placeholder="${esc(w("dietPh"))}"></label>
     </div>
-    <label class="f">A note for ${esc(hostWord(d))} (optional)<textarea id="rNote" maxlength="500">${esc(draft.note)}</textarea></label>
+    <label class="f">${esc(w("note", hostWord(d)))}<textarea id="rNote" maxlength="500">${esc(draft.note)}</textarea></label>
     <p class="form-error" id="rErr" role="alert" hidden></p>
-    <button class="btn" id="rSend" ${draft.status && !preview ? "" : "disabled"}>${preview ? "Sending is off in preview" : "Send reply"}</button>`;
+    <button class="btn" id="rSend" ${draft.status && !preview ? "" : "disabled"}>${preview ? "Sending is off in preview" : w("send")}</button>`;
+  replyButton();
   el.querySelector(".choice").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; readDraft(); draft.status = b.dataset.s; renderRsvp(); };
   $("rSend").onclick = groupForm ? sendGroup : send;
 }
@@ -160,7 +172,7 @@ function readDraft() {
 }
 
 function showError(msg) { const e = $("rErr"); e.textContent = msg; e.hidden = false; }
-function busy(on) { const b = $("rSend"); b.disabled = on; b.textContent = on ? "Sending…" : "Send reply"; }
+function busy(on) { const b = $("rSend"); b.disabled = on; b.textContent = on ? w("sending") : w("send"); }
 
 async function send() {
   if (preview) return;
@@ -168,15 +180,15 @@ async function send() {
   const { data, error } = await sb.rpc("submit_rsvp", {
     p_token: token, p_status: draft.status, p_coming: draft.coming, p_dietary: draft.dietary.trim(), p_note: draft.note.trim(),
   });
-  if (error) { busy(false); showError("Couldn't send your reply. Please check your connection and try again."); return; }
-  guest = { ...guest, ...data }; draft = null; renderRsvp(); toast("Reply sent. Thank you!");
+  if (error) { busy(false); showError(w("errSend")); return; }
+  guest = { ...guest, ...data }; draft = null; renderRsvp(); toast(w("sent"), { error: false });
 }
 
 async function sendGroup() {
   if (preview) return;
   readDraft();
-  if (!draft.name.trim()) { showError("Please enter your name."); $("rName").focus(); return; }
-  if (draft.phone.replace(/\D/g, "").length < 8) { showError("Please enter your WhatsApp number, so the hosts know who replied."); $("rPhone").focus(); return; }
+  if (!draft.name.trim()) { showError(w("errName")); $("rName").focus(); return; }
+  if (draft.phone.replace(/\D/g, "").length < 8) { showError(w("errPhone")); $("rPhone").focus(); return; }
   busy(true);
   const { data, error } = await sb.rpc("submit_group_rsvp", {
     p_token: groupToken, p_name: draft.name.trim(), p_phone: draft.phone.trim(), p_status: draft.status,
@@ -186,14 +198,14 @@ async function sendGroup() {
     busy(false);
     const known = /Please enter|Please choose|reached its limit|not found/i.test(error.message || "");
     showError(known ? error.message.replace("Invitation not found", "This group link has been turned off. Please ask whoever sent it for the current link.")
-      : "Couldn't send your reply. Please check your connection and try again.");
+      : w("errSend"));
     return;
   }
   remember(data.token);
   token = data.token; mode = "personal"; maxSeats = Math.max(1, data.seats || maxSeats);
   guest = { name: data.name, seats: data.seats, status: data.status, coming: data.coming, dietary: data.dietary, note: data.note };
   draft = null; render();
-  toast(data.updated ? "You'd already replied, so we've updated your reply." : "Reply sent. Thank you!");
+  toast(data.updated ? w("updated") : w("sent"), { error: false });
 }
 
 function replyForSomeoneElse() {
@@ -222,17 +234,17 @@ function setupOpening() {
   ov.className = "env-overlay";
   ov.style.cssText = `--env-bg:${st.bg};--env-inner:${mix(st.bg, st.ink, 0.1)};--env-flap:${mix(st.bg, st.accent, 0.14)};--env-line:${st.frameA};--env-seal:${st.accent};--env-seal-ink:${st.bg}`;
   ov.innerHTML = `<div class="env-wrap">
-      <p class="env-kicker">You're invited</p>
-      ${guest?.name ? `<p class="env-for">For ${esc(guest.name)}</p>` : ""}
-      <button type="button" class="env" aria-label="Open your invitation">
+      <p class="env-kicker">${w("kicker")}</p>
+      ${guest?.name ? `<p class="env-for">${esc(w("forName", guest.name))}</p>` : ""}
+      <button type="button" class="env" aria-label="${w("openIt")}">
         <span class="env-back"></span><span class="env-paper"></span><span class="env-front"></span>
         <span class="env-flap"></span><span class="env-seal">${esc(initialsFor(d))}</span>
       </button>
-      <p class="env-hint">Tap the envelope to open</p>
+      <p class="env-hint">${w("tap")}</p>
     </div>`;
   document.body.append(ov); document.body.classList.add("env-lock");
   // While the envelope is showing, the invitation behind it can't be reached, so Tab goes straight to the envelope.
-  const behind = [document.querySelector("main"), document.querySelector(".music-btn")].filter(Boolean);
+  const behind = [document.querySelector("main"), document.querySelector(".music-btn"), document.querySelector(".reply-fab")].filter(Boolean);
   behind.forEach((el) => (el.inert = true));
   const btn = ov.querySelector(".env");
   btn.addEventListener("click", () => {
@@ -259,11 +271,30 @@ function setupMusic() {
   const btn = document.createElement("button");
   btn.type = "button"; btn.className = "music-btn"; btn.setAttribute("aria-pressed", "false");
   const ICON = { play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>', pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>' };
-  const show = (on) => { btn.innerHTML = (on ? ICON.pause : ICON.play) + `<span>${on ? "Pause music" : "Play music"}</span>`; btn.setAttribute("aria-pressed", String(on)); };
+  const show = (on) => { btn.innerHTML = (on ? ICON.pause : ICON.play) + `<span>${on ? w("pause") : w("play")}</span>`; btn.setAttribute("aria-pressed", String(on)); };
   show(false);
   audio.addEventListener("play", () => show(true)); audio.addEventListener("pause", () => show(false));
   audio.addEventListener("error", () => { btn.remove(); });
   btn.addEventListener("click", () => (audio.paused ? audio.play().catch(() => toast("Couldn't play the music on this device.")) : audio.pause()));
   document.body.append(btn);
   music = { play: () => audio.play().catch(() => { }) };
+}
+
+
+/* ---------- a Reply button that stays at the bottom of the screen until the reply form is in view ---------- */
+function replyButton() {
+  const pending = mode === "group" || (guest && guest.status === "pending") || !!draft;
+  if (!replyBtn) {
+    replyBtn = document.createElement("button");
+    replyBtn.type = "button"; replyBtn.className = "btn reply-fab";
+    replyBtn.addEventListener("click", () => {
+      $("rsvp").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      setTimeout(() => $("rsvp").querySelector(".choice button, button, input")?.focus({ preventScroll: true }), reduceMotion ? 0 : 450);
+    });
+    document.body.append(replyBtn);
+    new IntersectionObserver(([e]) => { rsvpSeen = e.isIntersecting; replyBtn.hidden = rsvpSeen || !replyBtn.dataset.on; }, { threshold: 0.15 }).observe($("rsvp"));
+  }
+  replyBtn.textContent = w("reply");
+  replyBtn.dataset.on = pending ? "1" : "";
+  replyBtn.hidden = rsvpSeen || !pending;
 }

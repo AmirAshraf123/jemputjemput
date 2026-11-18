@@ -8,7 +8,21 @@ let invs = [], confirmDel = null;
 if (user) {
   $("who").textContent = user.email || "";
   $("signOut").onclick = signOut;
-  await load();
+  if (!(await fromDraft())) await load();
+}
+
+// A card started on the home page before signing in: make it a real invitation and open it.
+async function fromDraft() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem("jemput.draft") || "null"); } catch { }
+  if (!d?.ready || !OCCASIONS[d.occasion]) return false;
+  try { localStorage.removeItem("jemput.draft"); } catch { }
+  const occ = OCCASIONS[d.occasion], tpl = presetById(d.template) ? d.template : occ.template;
+  const details = cleanDetails({ ...defaultDetailsFor(d.occasion), name1: String(d.name1 || ""), name2: String(d.name2 || ""), date: String(d.date || "") });
+  const { data, error } = await sb.from("invitations").insert({ template: tpl, style: presetById(tpl).style, details }).select("id").single();
+  if (error) { toast("Couldn't save the card you started: " + error.message); return false; }
+  location.href = `edit.html#${data.id}`;
+  return true;
 }
 
 async function load() {
@@ -22,23 +36,33 @@ async function load() {
 
 function render() {
   if (!invs.length) {
-    $("invs").innerHTML = `<div class="empty" style="grid-column:1/-1">You haven't made an invitation yet. Press <b>New invitation</b> to start.</div>`;
+    $("invs").innerHTML = `<div class="empty" style="grid-column:1/-1"><p>No invitations yet.</p><button type="button" class="btn" id="emptyNew">Make your first invitation</button></div>`;
+    $("emptyNew").onclick = () => $("newInv").click();
     return;
   }
   $("invs").innerHTML = invs.map((inv) => {
     const d = cleanDetails(inv.details), s = cleanStyle(inv.style);
     const g = inv.guests || [];
     const coming = g.filter((x) => x.status === "yes").reduce((a, x) => a + (x.coming || 0), 0);
-    const waiting = g.filter((x) => x.status === "pending").length;
+    const waiting = g.filter((x) => x.status === "pending").length, replied = g.length - waiting;
+    // the one thing to do next on this invitation
+    const occ = OCCASIONS[d.occasion];
+    const next = !(d.name1 && (!occ.two || d.name2)) ? ["Add the names", ""]
+      : !d.date ? ["Add the date", ""]
+        : !g.length ? ["Add guests", "/guests"]
+          : waiting ? [`${waiting} still to reply · send a reminder`, "/guests"]
+            : ["Everyone has replied · see the list", "/guests"];
     const names = (d.name1 || d.name2) ? eventTitle(d) : `Untitled ${OCCASIONS[d.occasion].label.toLowerCase()}`;
     const ini = initialsFor(d);
     return `<article class="inv">
       <a class="open" href="edit.html#${inv.id}">
         ${thumbHTML(s, "", ini)}
-        <h3>${esc(names)}</h3>
+        <h2 class="inv-title">${esc(names)}</h2>
         <div class="meta"><span>${esc(fmtDate(d.date) || "No date yet")}</span></div>
-        <div class="meta"><span>${g.length} invited</span><span>${coming} coming</span><span>${waiting} waiting</span></div>
+        <div class="meta"><span>${g.length} invited</span><span>${coming} coming</span><span>${replied} of ${g.length} replied</span></div>
+        ${g.length ? `<div class="bar" role="img" aria-label="${replied} of ${g.length} replied"><i style="width:${Math.round((replied / g.length) * 100)}%"></i></div>` : ""}
       </a>
+      <a class="next" href="edit.html#${inv.id}${next[1]}">${esc(next[0])}</a>
       <div class="foot"><button class="btn sm ${confirmDel === inv.id ? "danger" : "ghost"}" data-del="${inv.id}">${confirmDel === inv.id ? "Delete for good" : "Delete"}</button></div>
     </article>`;
   }).join("");
@@ -79,5 +103,5 @@ $("occGrid").addEventListener("click", async (e) => {
     .insert({ template: occ.template, style: presetById(occ.template).style, details: defaultDetailsFor(b.dataset.o) })
     .select("id").single();
   if (error) { for (const x of $("occGrid").querySelectorAll("button")) x.disabled = false; toast("Couldn't create it: " + error.message); return; }
-  location.href = `edit.html#${data.id}`;
+  location.href = `edit.html#${data.id}/start`;   // the editor opens with a short guided start
 });

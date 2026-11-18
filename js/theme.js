@@ -61,3 +61,14 @@
     });
   }
 })();
+
+// ⓘ buttons: show or hide the extra detail they point to
+document.addEventListener("click", function (e) {
+  var b = e.target.closest && e.target.closest("button.info[aria-controls]");
+  if (!b) return;
+  var box = document.getElementById(b.getAttribute("aria-controls"));
+  if (!box) return;
+  var open = b.getAttribute("aria-expanded") !== "true";
+  b.setAttribute("aria-expanded", String(open));
+  box.hidden = !open;
+});

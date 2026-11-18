@@ -49,7 +49,11 @@ async function init() {
     group = data && "group_token" in data ? { token: data.group_token, enabled: !!data.group_enabled, max: data.group_max_seats || 2 } : null;
     setupFontSelects(); setupGroup(); setupOccasion(); setupCustomise();
     fd = setupFreeDesign(fdContext);
-    fillForm(); renderDesign(); fd.init(); resetHistory(); showTab(hashTab === "guests" ? "guests" : "design");
+    $("pageTitle").textContent = `Edit invitation: ${eventTitle(inv.details)}`;
+    fillForm(); renderDesign(); resetHistory(); showTab(hashTab === "guests" ? "guests" : "design");
+    let saved = ""; try { saved = localStorage.getItem("jemput.step") || ""; } catch { }
+    showStep(STEPS.includes(saved) && hashTab !== "start" ? saved : "details", false);
+    if (hashTab === "start") openStart();
     loadTemplates(); loadGuests(); subscribeGuests();
   }
 }
@@ -68,6 +72,37 @@ function showTab(name) {
 }
 $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && inv) showTab(b.dataset.tab); });
 
+/* ---------- design steps: Details · Style · Decorate · Reveal ---------- */
+const STEPS = ["details", "style", "decorate", "reveal"];
+function showStep(name, focus = true) {
+  for (const b of $("steps").querySelectorAll("[data-step]")) {
+    const on = b.dataset.step === name;
+    b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1;
+    $("step-" + b.dataset.step).hidden = !on;
+  }
+  fd?.setOn(name === "decorate");   // stickers can be moved on the preview only while decorating
+  if (name === "style" && !tplsShown) { tplsShown = true; renderTemplates(); }
+  try { localStorage.setItem("jemput.step", name); } catch { }
+  if (focus) {
+    const top = $("steps").getBoundingClientRect().top, pinned = phone.matches ? $("preview").getBoundingClientRect().bottom : 0;
+    if (top < pinned || top > innerHeight) window.scrollTo({ top: window.scrollY + top - pinned - 8, behavior: "smooth" });
+  }
+}
+$("steps").addEventListener("click", (e) => { const b = e.target.closest("[data-step]"); if (b) showStep(b.dataset.step); });
+// arrow keys move between the steps, like other tabs
+$("steps").addEventListener("keydown", (e) => {
+  const i = STEPS.indexOf(document.activeElement.dataset.step); if (i < 0) return;
+  const j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: STEPS.length - 1 }[e.key];
+  if (j === undefined) return;
+  e.preventDefault(); const k = (j + STEPS.length) % STEPS.length;
+  showStep(STEPS[k]); $("st-" + STEPS[k]).focus();
+});
+$("designForm").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-go]"); if (!b) return;
+  if (b.dataset.go === "guests") { showTab("guests"); window.scrollTo(0, 0); $("gName").focus(); return; }
+  showStep(b.dataset.go); $("st-" + b.dataset.go).focus({ preventScroll: true });
+});
+
 /* ---------- saving ---------- */
 function queueSave() {
   dirty = true; renderDesign(); record();
@@ -84,8 +119,13 @@ function queueSave() {
 window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
 
 /* ---------- design form ---------- */
+// Font menus preview every font, but all 16 are only fetched the first time someone opens a font menu.
+let allFonts = false;
+const loadAllFonts = () => { if (!allFonts) { allFonts = true; ensureFonts(Object.keys(FONTS)); } };
+for (const ev of ["focusin", "pointerdown"]) document.addEventListener(ev, (e) => {
+  if (e.target.matches?.('select[data-s$="Font"], select[data-p="font"], #sBodyFont')) loadAllFonts();
+}, true);
 function setupFontSelects() {
-  ensureFonts(Object.keys(FONTS));   // the font menus preview every font
   const opts = Object.entries(FONTS).map(([k, v]) => `<option value="${k}">${esc(v[0])}</option>`).join("");
   for (const sel of [$("sBodyFont")]) {
     sel.innerHTML = opts;
@@ -105,7 +145,10 @@ function baseName(tid) {
   if (tid?.startsWith("pub:")) return pubTpls.find((x) => x.id === tid.slice(4))?.name || "a community template";
   return presetById(tid)?.name || "Songket";
 }
+// The template tiles (and their fonts) are only drawn once the Style step has been opened.
+let tplsShown = false;
 function renderTemplates() {
+  if (!tplsShown) return;
   const ini = initials();
   $("tpls").innerHTML = PRESETS.map((p) => `<button type="button" class="tpl" data-t="${p.id}" aria-pressed="${inv.template === p.id}">${thumbHTML(p.style, p.name, ini)}</button>`).join("");
   $("mineWrap").hidden = !myTpls.length;
@@ -359,7 +402,7 @@ function renderTr() {
   const d = inv.details; if (!d.lang2) { $("trList").innerHTML = ""; return; }
   if ($("trList").contains(document.activeElement) && document.activeElement.dataset.tr) return;   // don't redraw under the cursor
   const L2 = LANGS[d.lang2], items = trItems();
-  $("trIntro").textContent = `Standard wording, dates and labels are already in ${L2.name}. Check each line below and change anything you like.`;
+  $("trIntro").textContent = `Standard wording is already in ${L2.name}. Check each line.`;
   const row = (it) => {
     const r = translated(it.src, it.saved, d), val = r.how === "none" ? "" : r.text;
     const ph = it.optional ? `Leave empty to keep "${it.src}"` : `${L2.name} for this line`;
@@ -498,7 +541,6 @@ function setupOccasion() {
 function fillOccasion() {
   const occ = occasionOf(inv.details);
   $("occasion").value = inv.details.occasion;
-  $("namesLegend").textContent = occ.legend;
   $("l1").textContent = occ.l1; $("l2").textContent = occ.l2;
   $("name1").placeholder = occ.two ? "e.g. Hakim" : occ.ph1;
   $("name2").placeholder = occ.two ? "e.g. Nadia" : (occ.ex2 || "");
@@ -547,7 +589,7 @@ $("occasion").addEventListener("change", (e) => {
   fillForm(); renderGuests(); queueSave();
   toast(`Set up for ${next.label.toLowerCase()}`);
 });
-function renderDesign() { $("designCard").innerHTML = cardHTML(inv, null, curLang()); fitPreview(); renderReadability(); renderTr(); fd?.decorate(); fd?.refresh(); }
+function renderDesign() { $("designCard").innerHTML = cardHTML(inv, null, curLang()); fitPreview(); renderReadability(); renderTr(); fd?.decorate(); fd?.refresh(); renderReady(); }
 
 /* ---------- phone preview: pinned, scaled to fit, can be hidden or opened full size ---------- */
 const phone = matchMedia("(max-width: 880px)");
@@ -960,7 +1002,7 @@ function inviteText(g) {
 async function loadGuests() {
   const { data, error } = await sb.from("guests").select("*").eq("invitation_id", inv.id).order("created_at");
   if (error) { toast("Couldn't load guests: " + error.message); return; }
-  guests = data; renderSideControls(); renderGuests();
+  guests = data; renderSideControls(); renderGuests(); renderReady();
 }
 function subscribeGuests() {
   sb.channel("guests-" + inv.id)
@@ -1240,4 +1282,81 @@ $("fxPlay").addEventListener("click", () => {
   if (inv.details.fall === "none" && inv.details.bloom !== "1") { toast("Choose something to fall, or tick bloom, first."); return; }
   playFall(inv.details.fall, fxColours(), $("pvFrame"), { count: 22, seconds: 5 });
   if (inv.details.bloom === "1") bloom($("designCard"));
+});
+
+
+/* ---------- ready to send: what's still missing, each linking to where to fill it in ---------- */
+function renderReady() {
+  if (!inv) return;
+  const d = inv.details, occ = occasionOf(d);
+  const items = [
+    { ok: !!(d.name1.trim() && (!occ.two || d.name2.trim())), label: occ.two ? "Names" : "Name", go: "name1" },
+    { ok: !!d.date, label: "Date", go: "date" },
+    { ok: !!d.venue.trim(), label: "Venue", go: "venue" },
+    { ok: guests.length > 0, label: guests.length ? `${guests.length} ${guests.length === 1 ? "guest" : "guests"}` : "Guests", go: "guests" },
+  ];
+  const done = items.every((x) => x.ok);
+  const html = `<span class="ready-h">${done ? "Ready to send" : "Before you send"}</span>` + items.map((x) =>
+    `<button type="button" class="ready-i${x.ok ? " ok" : ""}" data-ready="${x.go}"><span class="tick" aria-hidden="true">${x.ok ? "✓" : ""}</span>${esc(x.label)}<span class="vh">${x.ok ? ", done" : ", not done yet"}</span></button>`).join("");
+  $("ready").innerHTML = html; $("readyM").innerHTML = html;
+}
+for (const id of ["ready", "readyM"]) $(id).addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ready]"); if (!b) return;
+  if (b.dataset.ready === "guests") { showTab("guests"); window.scrollTo(0, 0); $("gName").focus(); return; }
+  showStep("details");
+  const f = $(b.dataset.ready); const fs = f.closest("fieldset"); if (fs?.classList.contains("closed")) fs.querySelector(".sec-toggle").click();
+  f.focus(); f.scrollIntoView({ block: "center", behavior: "smooth" });
+});
+
+/* ---------- guided start for a new invitation: who and when, then a look ---------- */
+let startTpl = null;
+function openStart() {
+  const d = inv.details, occ = occasionOf(d);
+  $("sl1").textContent = occ.l1; $("sl2").textContent = occ.l2;
+  $("sName1").placeholder = occ.two ? "e.g. Hakim" : occ.ph1; $("sName2").placeholder = occ.two ? "e.g. Nadia" : (occ.ex2 || "");
+  $("sName1").value = d.name1; $("sName2").value = d.name2; $("sDate").value = d.date; $("sStart").value = d.start; $("sVenue").value = d.venue;
+  startTpl = inv.template;
+  // the occasion's own template first, then the rest
+  const order = [presetById(occ.template), ...PRESETS.filter((p) => p.id !== occ.template)].filter(Boolean);
+  $("sTpls").innerHTML = order.map((p) => `<button type="button" class="tpl" role="radio" data-st="${p.id}" aria-checked="${p.id === startTpl}" tabindex="${p.id === startTpl ? 0 : -1}">${thumbHTML(p.style, p.name, initialsFor(d))}</button>`).join("");
+  startPage("A");
+  $("startDlg").showModal();
+  $("sName1").focus();
+}
+function startPage(pg) {
+  $("startA").hidden = pg !== "A"; $("startB").hidden = pg !== "B";
+  $("startBack").hidden = pg === "A";
+  $("startNext").textContent = pg === "A" ? "Next" : "Start designing";
+  $("startStep").textContent = pg === "A" ? "Step 2 of 3" : "Step 3 of 3";
+  $("startDlg").setAttribute("aria-labelledby", pg === "A" ? "startTitle" : "startTitleB");
+}
+function applyStart() {
+  inv.details = cleanDetails({ ...inv.details, name1: $("sName1").value.trim(), name2: $("sName2").value.trim(), date: $("sDate").value, start: $("sStart").value, venue: $("sVenue").value.trim() });
+  if (startTpl && startTpl !== inv.template) chooseTemplate(startTpl);
+  fillForm(); queueSave();
+}
+function closeStart() {
+  $("startDlg").close();
+  history.replaceState(null, "", location.pathname + "#" + inv.id);
+  $("st-details").focus();
+}
+$("startForm").addEventListener("submit", (e) => {   // Next button, or Enter in a field
+  e.preventDefault();
+  if (!$("startA").hidden) { startPage("B"); $("sTpls").querySelector('[aria-checked="true"]')?.focus(); return; }
+  applyStart(); closeStart();
+  toast("Your card is ready to make your own.");
+});
+$("startBack").addEventListener("click", () => { startPage("A"); $("sName1").focus(); });
+$("startSkip").addEventListener("click", () => { applyStart(); closeStart(); });
+$("startDlg").addEventListener("cancel", () => history.replaceState(null, "", location.pathname + "#" + inv.id));
+$("sTpls").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-st]"); if (!b) return;
+  startTpl = b.dataset.st;
+  for (const x of $("sTpls").children) { const on = x === b; x.setAttribute("aria-checked", String(on)); x.tabIndex = on ? 0 : -1; }
+});
+// arrow keys move through the looks, like radio buttons
+$("sTpls").addEventListener("keydown", (e) => {
+  const list = [...$("sTpls").children], i = list.indexOf(document.activeElement); if (i < 0) return;
+  const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1 }[e.key]; if (j === undefined) return;
+  e.preventDefault(); const b = list[(j + list.length) % list.length]; b.click(); b.focus();
 });

@@ -22,6 +22,7 @@ All file paths below are relative to the top of the project folder.
 | `js/card.js` | How cards look: templates, fonts, borders, photos, stickers and text boxes. Add new templates here |
 | `js/stickers.js` | The sticker library: flowers, leaves, frames, festive and celebration drawings. Add your own drawings here |
 | `js/freedesign.js`, `js/sortable.js` | Free design (placing stickers, pictures and text anywhere) and drag-to-reorder lists |
+| `js/words.js` | What the guest page says, in English, Malay, Chinese and Tamil |
 | `js/effects.js` | Falling petals, sparkles and confetti, and stickers blooming in, when guests open the card |
 | `js/edit.js`, `js/dashboard.js`, `js/invite.js`, `js/landing.js` | The code for each page |
 | `js/sb.js` | Connects to Supabase and a few shared helpers |

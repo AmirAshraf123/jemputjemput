@@ -162,13 +162,17 @@
 }
 
 .thumb-in {
-  display: grid;
-  place-items: center;
+  display: block;
   height: 100%;
   font-size: 22px;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden
+}
+
+.thumb-svg {
+  display: block;
+  overflow: visible
 }
 
 @media (max-width:420px) {

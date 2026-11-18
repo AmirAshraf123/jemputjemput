@@ -605,5 +605,6 @@ export function cardHTML(inv, guestName, lang) {
 export function thumbHTML(style, label, initials) {
   const s = cleanStyle(style), nf = FONTS[s.nameFont];
   ensureFonts([s.nameFont]);
-  return `<span class="thumb" style="${frameCSS(s, 0.45)};border-radius:${Math.round(s.radius * 0.5)}px"><span class="thumb-in" style="background:${s.bg};color:${s.accent};font-family:${nf[1]};font-style:${nf[2] || "normal"};border-radius:${Math.round(s.radius * 0.3)}px">${esc(initials)}</span></span>${esc(label)}`;
+  // the swatch is a small picture of the design (its colours are the template's own); the label carries the meaning
+  return `<span class="thumb" aria-hidden="true" style="${frameCSS(s, 0.45)};border-radius:${Math.round(s.radius * 0.5)}px"><span class="thumb-in" style="background:${s.bg};border-radius:${Math.round(s.radius * 0.3)}px"><svg class="thumb-svg" width="100%" height="100%" focusable="false"><text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" fill="${s.accent}" style="font-family:${esc(nf[1])};font-style:${nf[2] || "normal"}">${esc(initials)}</text></svg></span></span>${esc(label)}`;
 }

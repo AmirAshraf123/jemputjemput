@@ -23,11 +23,23 @@ export async function signOut() {
 
 export const $ = (id) => document.getElementById(id);
 
-export function toast(msg) {
+// Short messages at the bottom of the screen. Problems stay until dismissed, so nobody misses one;
+// everything else fades after a few seconds (longer messages stay up longer).
+const ERRORISH = /^(couldn't|could not|upload failed|sorry|please choose|that picture|something went wrong|the free translator)/i;
+export function toast(msg, { error = ERRORISH.test(msg) } = {}) {
   let t = $("toast");
-  if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; t.setAttribute("role", "status"); document.body.append(t); }
-  t.textContent = msg; t.hidden = false;
-  clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), Math.max(2800, msg.length * 70));   // longer messages stay up longer
+  if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; document.body.append(t); }
+  clearTimeout(toast._t);
+  t.className = "toast" + (error ? " error" : "");
+  t.setAttribute("role", error ? "alert" : "status");
+  t.innerHTML = "";
+  const m = document.createElement("span"); m.textContent = msg; t.append(m);
+  if (error) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "toast-x"; b.textContent = "Dismiss";
+    b.onclick = () => { t.hidden = true; }; t.append(b);
+  }
+  t.hidden = false;
+  if (!error) toast._t = setTimeout(() => (t.hidden = true), Math.max(2800, msg.length * 70));
 }
 
 export function showSetupNotice() {

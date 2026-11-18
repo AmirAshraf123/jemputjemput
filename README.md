@@ -4,6 +4,8 @@
 
 *Jemput* is Malay for "to invite".
 
+Visitors can design a card on the home page before signing up. New invitations start with a two-screen guided setup, and the editor is split into four steps (**Details · Style · Decorate · Reveal**) with a "ready to send" checklist beside the preview.
+
 **[Live site →](https://jemput2.netlify.app)** · [Set it up yourself](docs/SETUP.md)
 
 ![Jemput home page with a sample Peranakan-style invitation](docs/screenshots/home.png)
@@ -26,7 +28,7 @@ Canva can design a card, but it doesn't help with the hard part of a wedding in 
 - **Front end:** plain HTML, CSS and JavaScript modules. No framework and no build step.
 - **Back end:** [Supabase](https://supabase.com) for the Postgres database, row-level security, email and Google sign-in, file storage and realtime updates.
 - **Hosting:** Netlify, as static files.
-- **Accessibility:** a warm cream palette where every text and control colour meets WCAG AA contrast in light and dark mode, 16px base text, 44px tap targets and visible focus rings.
+- **Accessibility:** a warm cream palette where every text and control colour meets WCAG AA contrast in light and dark mode, 16px base text, 44px tap targets and visible focus rings. Every page passes an axe-core audit (WCAG 2.2 AA) in light and dark mode on desktop and phone, works by keyboard alone, reflows without sideways scrolling at 400% zoom, and marks selections in Windows high-contrast mode. The guest page follows the card's language, including the reply form.
 
 ## How it works
 

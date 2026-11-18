@@ -36,6 +36,7 @@
   </header>
 
   <main class="wrap">
+    <h1 class="vh" id="pageTitle">Edit invitation</h1>
     <div id="notFound" class="empty" hidden>This invitation doesn't exist or belongs to another account. <a
         href="app.html">Back to your invitations</a></div>
 
@@ -43,291 +44,354 @@
     <section id="v-design" hidden>
       <div class="design">
         <div class="form" id="designForm">
-          <fieldset data-open-phone="1">
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec1"><span
-                  class="sec-title">Template</span></button> <small id="tplState"></small></legend>
-            <div class="sec-body" id="sec1">
-              <div class="tpls" id="tpls"></div>
-              <div id="mineWrap" hidden>
-                <h3 class="sub-h">Your templates</h3>
-                <div class="tpls" id="mine" style="margin-top:8px"></div>
-              </div>
-              <div id="pubWrap" hidden>
-                <h3 class="sub-h">Community templates</h3>
-                <p class="hint">Designs other Jemput users have shared. Pick one and make it your own; changes stay on
-                  your card.</p>
-                <div class="tpls" id="pub" style="margin-top:8px"></div>
-              </div>
-            </div>
-          </fieldset>
+          <nav class="ready ready-m" id="readyM" aria-label="Ready to send"></nav>
+          <div class="steps" role="tablist" aria-label="Design steps" id="steps">
+            <button type="button" role="tab" id="st-details" data-step="details" aria-controls="step-details"
+              aria-selected="true"><span class="n" aria-hidden="true">1</span>Details</button>
+            <button type="button" role="tab" id="st-style" data-step="style" aria-controls="step-style"
+              aria-selected="false" tabindex="-1"><span class="n" aria-hidden="true">2</span>Style</button>
+            <button type="button" role="tab" id="st-decorate" data-step="decorate" aria-controls="step-decorate"
+              aria-selected="false" tabindex="-1"><span class="n" aria-hidden="true">3</span>Decorate</button>
+            <button type="button" role="tab" id="st-reveal" data-step="reveal" aria-controls="step-reveal"
+              aria-selected="false" tabindex="-1"><span class="n" aria-hidden="true">4</span>Reveal</button>
+          </div>
 
-          <fieldset id="photoBox">
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec2"><span
-                  class="sec-title">Photo or background</span></button></legend>
-            <div class="sec-body" id="sec2">
-              <div class="drop" id="drop">
-                <span id="phPrev"><span class="ph-empty" aria-hidden="true">＋</span></span>
-                <div class="txt">
-                  <label class="btn ghost sm" for="photoFile" id="photoBtn">Choose a photo</label>
-                  <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-                  <span class="hint" id="photoNote">Or drag a photo here. JPG, PNG or WebP.</span>
-                </div>
-              </div>
-              <div id="photoOpts" hidden style="display:grid;gap:12px">
+          <!-- 1 DETAILS -->
+          <div class="step" id="step-details" role="tabpanel" aria-labelledby="st-details">
+            <fieldset data-open-phone="1">
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec4"><span class="sec-title" id="namesLegend">Who it's for</span></button></h2>
+              </legend>
+              <div class="sec-body" id="sec4">
+                <label class="f">Occasion<select id="occasion"></select></label>
                 <div class="row">
-                  <label class="f">Placement<select id="pMode" data-p="mode">
-                      <option value="top">Above the text</option>
-                      <option value="bottom">Below the text</option>
-                      <option value="left">Left of the text</option>
-                      <option value="right">Right of the text</option>
-                      <option value="background">Full background</option>
-                    </select></label>
-                  <label class="f" id="pShapeWrap">Shape<select id="pShape" data-p="shape">
-                      <option value="arch">Arch</option>
-                      <option value="circle">Circle / oval</option>
-                      <option value="rect">Rectangle</option>
-                    </select></label>
+                  <label class="f"><span id="l1">First name</span><input id="name1" data-k="name1"
+                      maxlength="60"></label>
+                  <label class="f"><span id="l2">Second name</span><input id="name2" data-k="name2"
+                      maxlength="60"></label>
                 </div>
-                <div class="row" id="pSizeRow">
-                  <label class="f">Frame width <output id="oSize"></output><input type="range" id="pSize" data-p="size"
-                      min="30" max="100" step="1"></label>
-                  <label class="f">Frame height <output id="oH"></output><input type="range" id="pH" data-p="h" min="40"
-                      max="200" step="1"></label>
-                </div>
-                <p class="hint">Drag the photo in the preview to move it, and use Zoom to fill the frame.</p>
+                <label class="f">Heading<input id="headline" data-k="headline" maxlength="80"></label>
+                <label class="f">Message<textarea id="message" data-k="message" maxlength="400"></textarea></label>
+              </div>
+            </fieldset>
+            <fieldset data-open-phone="1">
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec5"><span class="sec-title">Date and place</span></button></h2>
+              </legend>
+              <div class="sec-body" id="sec5">
                 <div class="row">
-                  <label class="f">Zoom <output id="oZoom"></output><input type="range" id="pZoom" data-p="zoom"
-                      min="20" max="300" step="1"></label>
-                  <label class="f">Left / right <output id="oPosX"></output><input type="range" id="pPosX" data-p="dx"
-                      min="-100" max="100" step="1"></label>
-                  <label class="f">Up / down <output id="oPosY"></output><input type="range" id="pPosY" data-p="dy"
-                      min="-100" max="100" step="1"></label>
+                  <label class="f">Date<input type="date" id="date" data-k="date"></label>
+                  <label class="f">Starts<input type="time" id="start" data-k="start"></label>
+                  <label class="f">Ends<input type="time" id="end" data-k="end"></label>
                 </div>
-                <label class="f">Filter<select id="pFilter" data-p="filter">
-                    <option value="none">None</option>
-                    <option value="bw">Black and white</option>
-                    <option value="warm">Warm</option>
-                    <option value="faded">Faded</option>
-                    <option value="duo">Duotone (card colours)</option>
-                  </select></label>
-                <label class="f" id="pFadeWrap">Card colour over photo <output id="oFade"></output><input type="range"
-                    id="pFade" data-p="fade" min="0" max="90" step="1"></label>
-                <div class="acts">
-                  <button type="button" class="btn sm" id="matchFrame">Fit frame to photo</button>
-                  <button type="button" class="btn sm ghost" id="fitPhoto">Show whole photo</button>
-                  <button type="button" class="btn sm ghost" id="recenter">Fill the frame</button>
-                  <button type="button" class="btn sm ghost" id="removePhoto">Remove photo</button>
+                <label class="f">Venue<input id="venue" data-k="venue" maxlength="120"></label>
+                <label class="f">Address<input id="address" data-k="address" maxlength="200"></label>
+                <div class="row">
+                  <label class="f">Dress code<input id="dress" data-k="dress" maxlength="80"
+                      placeholder="e.g. Smart casual"></label>
+                  <label class="f">Reply by<input type="date" id="rsvpBy" data-k="rsvpBy"></label>
                 </div>
               </div>
-            </div>
-          </fieldset>
-
-          <fieldset id="styleBox">
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec3"><span
-                  class="sec-title">Make it yours</span></button> <button type="button" class="btn sm ghost"
-                id="resetStyle">Reset to template</button></legend>
-            <div class="sec-body" id="sec3">
-              <h3 class="sub-h">Card</h3>
-              <p class="hint">The card itself: its shape, background, border and the text colour every part uses unless
-                you give it its own.</p>
-              <div class="pal" id="palBox" hidden>
-                <button type="button" class="btn sm" id="palGo">Pick colours from my photo</button>
-                <div class="pal-list" id="palList" role="group" aria-label="Colour sets from your photo"></div>
+            </fieldset>
+            <fieldset>
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec7"><span class="sec-title">Schedule and notes</span></button></h2>
+              </legend>
+              <div class="sec-body" id="sec7">
+                <p class="hint">A programme, or notes like parking. <button type="button" class="info"
+                    aria-expanded="false" aria-controls="i-extras" aria-label="More about schedule and notes">i</button>
+                </p>
+                <p class="more" id="i-extras" hidden>For example "10:00 AM · Akad nikah" or "No boxed gifts, please".
+                  The time is optional.</p>
+                <div class="extras-list" id="extrasList"></div>
+                <div><button type="button" class="btn sm ghost" id="addExtra">Add a line</button></div>
               </div>
-              <div class="row">
-                <label class="f">Shape<select id="sShape" data-s="shape"></select></label>
-                <label class="f">Alignment<select id="sAlign" data-s="align">
-                    <option value="center">Centred</option>
-                    <option value="left">Left</option>
-                  </select></label>
-              </div>
-              <div class="row colors">
-                <label class="f">Background<input type="color" id="sBg" data-s="bg"></label>
-                <label class="f">Text<input type="color" id="sInk" data-s="ink"></label>
-              </div>
-              <div class="row">
-                <label class="f">Background style<select id="sTexture" data-s="texture"></select></label>
-                <label class="f" id="bg2Wrap">Gradient end colour<input type="color" id="sBg2" data-s="bg2"></label>
-              </div>
-              <div class="row">
-                <label class="f">Text font<select id="sBodyFont" data-s="bodyFont"></select></label>
-                <label class="f">Text size <output id="oBodySize"></output><input type="range" id="sBodySize"
-                    data-s="bodySize" min="13" max="20" step="1"></label>
-              </div>
-              <div class="row">
-                <label class="f">Border pattern<select id="sFrame" data-s="frame">
-                    <option value="none">None</option>
-                    <option value="solid">Solid band</option>
-                    <option value="double">Double line</option>
-                    <option value="diamonds">Diamonds</option>
-                    <option value="checks">Checks</option>
-                    <option value="dots">Dots</option>
-                    <option value="stripes">Diagonal stripes</option>
-                    <option value="deco">Deco lines</option>
-                    <option value="confetti">Confetti</option>
-                  </select></label>
-                <label class="f">Rounded corners <output id="oRadius"></output><input type="range" id="sRadius"
-                    data-s="radius" min="0" max="28" step="1"></label>
-              </div>
-              <div class="row colors">
-                <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
-                <label class="f">Border 2<input type="color" id="sFrameB" data-s="frameB"></label>
-              </div>
-              <div class="row">
-                <label class="f">Corner ornament<select id="sCorners" data-s="corners"></select></label>
-                <label class="f" id="cornerColorWrap">Corner colour<input type="color" id="sCornerColor"
-                    data-s="cornerColor" data-follow="accent"></label>
-              </div>
-              <label class="chk"><input type="checkbox" id="sLine" data-s="line"> Thin inner frame line (uses Border 1
-                colour)</label>
-
-              <h3 class="sub-h">Parts of the card, top to bottom</h3>
-              <p class="hint" id="secHint">Drag ⠿ to move a part, untick it to hide it, and tap its colour to change
-                just that part. "Style" has its font and more.</p>
-              <ol class="sec-list" id="secList"></ol>
-              <p class="vh" id="secLive" aria-live="polite"></p>
-              <div class="readability" id="readBox" role="status"></div>
-              <h3 class="sub-h">Save this look</h3>
-              <div class="saveas">
-                <input id="tplName" placeholder="Name your template, e.g. Kampung Gold" maxlength="40">
-                <button type="button" class="btn" id="saveTpl">Save as my template</button>
-              </div>
-              <label class="chk"><input type="checkbox" id="tplShare"> Share it with everyone as a community
-                template</label>
-              <label class="f" id="tplAuthorWrap" hidden>Name to credit<input id="tplAuthor" maxlength="60"
-                  placeholder="e.g. Aisyah, or @aisyah.designs" autocomplete="nickname"></label>
-              <p class="hint">Saved templates appear under "Your templates" in all your invitations. Shared ones also
-                appear for everyone, with the name you give, but never your card's words, photos or guests. Stickers and
-                pictures you added do go with it.</p>
-            </div>
-          </fieldset>
-
-          <fieldset id="fdBox">
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec11"><span
-                  class="sec-title">Free design</span></button> <small id="fdCount"></small></legend>
-            <div class="sec-body" id="sec11">
-              <label class="switch"><input type="checkbox" id="fdOn"> <span>Free design: add stickers, your own pictures
-                  and text anywhere on the card</span></label>
-              <div id="fdTools" hidden>
-                <div class="fd-add">
-                  <button type="button" class="btn" id="fdAddText">Add text</button>
-                  <label class="btn ghost file-btn" id="fdUploadLabel">Upload your own picture<input type="file"
-                      id="fdUpload" accept="image/png,image/webp,image/jpeg,image/svg+xml" class="vh"></label>
-                  <label class="chk"><input type="checkbox" id="fdSnap" checked> Snap to guides</label>
+            </fieldset>
+            <fieldset>
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec8"><span class="sec-title">Languages</span></button></h2>
+              </legend>
+              <div class="sec-body" id="sec8">
+                <p class="hint">Guests switch languages with a button on the card. <button type="button" class="info"
+                    aria-expanded="false" aria-controls="i-lang" aria-label="More about languages">i</button></p>
+                <p class="more" id="i-lang" hidden>Only one language shows at a time, so the card doesn't get longer.
+                  The card opens in the guest's phone language when it matches.</p>
+                <div class="row">
+                  <label class="f">Written in<select id="lang1" data-k="lang1"></select></label>
+                  <label class="f">Second language<select id="lang2" data-k="lang2"></select></label>
                 </div>
-                <p class="hint">PNG or SVG with a see-through background works best, like a hand-drawn monogram or a
-                  watercolour flower.</p>
-                <h3 class="sub-h">Stickers</h3>
-                <div class="chips" id="fdCats" role="group" aria-label="Sticker groups"></div>
-                <div class="fd-lib" id="fdLib"></div>
-                <div class="fd-props" id="fdProps" hidden></div>
-                <h3 class="sub-h">Layers</h3>
-                <p class="hint">The top of the list is in front. Drag ⠿ to change the order.</p>
-                <ol class="sec-list fd-layers" id="fdLayers"></ol>
-                <p class="vh" id="fdLive" aria-live="polite"></p>
+                <div id="trBox" class="tr-box" hidden>
+                  <p class="hint" id="trIntro"></p>
+                  <div><button type="button" class="btn sm" id="trAll">Translate everything</button></div>
+                  <div id="trList" class="tr-list"></div>
+                  <p class="hint">Translate uses MyMemory, a free online translator. <button type="button" class="info"
+                      aria-expanded="false" aria-controls="i-mm" aria-label="More about translation">i</button></p>
+                  <p class="more" id="i-mm" hidden>Only the text of that line is sent. Machine translations can be off,
+                    so check them or ask someone who reads the language. Standard wording, dates and labels are
+                    translated without going online.</p>
+                </div>
               </div>
-            </div>
-          </fieldset>
-          <fieldset data-open-phone="1">
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec4"><span
-                  class="sec-title" id="namesLegend">The couple</span></button></legend>
-            <div class="sec-body" id="sec4">
-              <label class="f">Occasion<select id="occasion"></select></label>
-              <div class="row">
-                <label class="f"><span id="l1">First name</span><input id="name1" data-k="name1" maxlength="60"></label>
-                <label class="f"><span id="l2">Second name</span><input id="name2" data-k="name2"
-                    maxlength="60"></label>
+            </fieldset>
+            <div class="step-next"><button type="button" class="btn" data-go="style">Next: Style</button></div>
+          </div>
+
+          <!-- 2 STYLE -->
+          <div class="step" id="step-style" role="tabpanel" aria-labelledby="st-style" hidden>
+            <fieldset data-open-phone="1">
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec1"><span class="sec-title">Templates</span></button></h2> <small
+                  id="tplState"></small>
+              </legend>
+              <div class="sec-body" id="sec1">
+                <div class="tpls" id="tpls"></div>
+                <div id="mineWrap" hidden>
+                  <h3 class="sub-h">Your templates</h3>
+                  <div class="tpls" id="mine" style="margin-top:8px"></div>
+                </div>
+                <div id="pubWrap" hidden>
+                  <h3 class="sub-h">Community templates</h3>
+                  <p class="hint">Shared by other Jemput users.</p>
+                  <div class="tpls" id="pub" style="margin-top:8px"></div>
+                </div>
               </div>
-              <label class="f">Heading at the top<input id="headline" data-k="headline" maxlength="80"></label>
-              <label class="f">Message<textarea id="message" data-k="message" maxlength="400"></textarea></label>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec5"><span
-                  class="sec-title">When</span></button></legend>
-            <div class="sec-body" id="sec5">
-              <div class="row">
-                <label class="f">Date<input type="date" id="date" data-k="date"></label>
-                <label class="f">Starts<input type="time" id="start" data-k="start"></label>
-                <label class="f">Ends<input type="time" id="end" data-k="end"></label>
+            </fieldset>
+            <fieldset id="styleBox">
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec3"><span class="sec-title">Colours and fonts</span></button></h2> <button
+                  type="button" class="btn sm ghost" id="resetStyle">Reset to template</button>
+              </legend>
+              <div class="sec-body" id="sec3">
+                <h3 class="sub-h">Whole card</h3>
+                <div class="pal" id="palBox" hidden>
+                  <button type="button" class="btn sm" id="palGo">Pick colours from my photo</button>
+                  <div class="pal-list" id="palList" role="group" aria-label="Colour sets from your photo"></div>
+                </div>
+                <div class="row">
+                  <label class="f">Shape<select id="sShape" data-s="shape"></select></label>
+                  <label class="f">Alignment<select id="sAlign" data-s="align">
+                      <option value="center">Centred</option>
+                      <option value="left">Left</option>
+                    </select></label>
+                </div>
+                <div class="row colors">
+                  <label class="f">Background<input type="color" id="sBg" data-s="bg"></label>
+                  <label class="f">Text<input type="color" id="sInk" data-s="ink"></label>
+                </div>
+                <div class="row">
+                  <label class="f">Background style<select id="sTexture" data-s="texture"></select></label>
+                  <label class="f" id="bg2Wrap">Gradient end colour<input type="color" id="sBg2" data-s="bg2"></label>
+                </div>
+                <div class="row">
+                  <label class="f">Text font<select id="sBodyFont" data-s="bodyFont"></select></label>
+                  <label class="f">Text size <output id="oBodySize"></output><input type="range" id="sBodySize"
+                      data-s="bodySize" min="13" max="20" step="1"></label>
+                </div>
+                <div class="row">
+                  <label class="f">Border pattern<select id="sFrame" data-s="frame">
+                      <option value="none">None</option>
+                      <option value="solid">Solid band</option>
+                      <option value="double">Double line</option>
+                      <option value="diamonds">Diamonds</option>
+                      <option value="checks">Checks</option>
+                      <option value="dots">Dots</option>
+                      <option value="stripes">Diagonal stripes</option>
+                      <option value="deco">Deco lines</option>
+                      <option value="confetti">Confetti</option>
+                    </select></label>
+                  <label class="f">Rounded corners <output id="oRadius"></output><input type="range" id="sRadius"
+                      data-s="radius" min="0" max="28" step="1"></label>
+                </div>
+                <div class="row colors">
+                  <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
+                  <label class="f">Border 2<input type="color" id="sFrameB" data-s="frameB"></label>
+                </div>
+                <div class="row">
+                  <label class="f">Corner ornament<select id="sCorners" data-s="corners"></select></label>
+                  <label class="f" id="cornerColorWrap">Corner colour<input type="color" id="sCornerColor"
+                      data-s="cornerColor" data-follow="accent"></label>
+                </div>
+                <label class="chk"><input type="checkbox" id="sLine" data-s="line"> Thin inner line</label>
+
+                <h3 class="sub-h">Each part, top to bottom</h3>
+                <p class="hint" id="secHint">Drag ⠿ to reorder. Untick to hide.</p>
+                <ol class="sec-list" id="secList"></ol>
+                <p class="vh" id="secLive" aria-live="polite"></p>
+                <div class="readability" id="readBox" role="status"></div>
+                <h3 class="sub-h">Save this look</h3>
+                <div class="saveas">
+                  <input id="tplName" placeholder="Name it, e.g. Kampung Gold" maxlength="40"
+                    aria-label="Template name">
+                  <button type="button" class="btn" id="saveTpl">Save as template</button>
+                </div>
+                <label class="chk"><input type="checkbox" id="tplShare"> Share with everyone</label>
+                <label class="f" id="tplAuthorWrap" hidden>Name to credit<input id="tplAuthor" maxlength="60"
+                    placeholder="e.g. Aisyah, or @aisyah.designs" autocomplete="nickname"></label>
+                <p class="hint">Reuse it on any invitation. <button type="button" class="info" aria-expanded="false"
+                    aria-controls="i-share" aria-label="More about sharing templates">i</button></p>
+                <p class="more" id="i-share" hidden>Shared templates appear for everyone with the name you give. Your
+                  card's words, photos and guests are never shared, but stickers and pictures you added go with it.</p>
               </div>
-              <label class="f">Reply by<input type="date" id="rsvpBy" data-k="rsvpBy"></label>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec6"><span
-                  class="sec-title">Where</span></button></legend>
-            <div class="sec-body" id="sec6">
-              <label class="f">Venue<input id="venue" data-k="venue" maxlength="120"></label>
-              <label class="f">Address<input id="address" data-k="address" maxlength="200"></label>
-              <label class="f">Dress code<input id="dress" data-k="dress" maxlength="80"></label>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec7"><span
-                  class="sec-title">Extra lines and schedule</span></button></legend>
-            <div class="sec-body" id="sec7">
-              <p class="hint">Add a programme, like "10:00 AM · Akad nikah", or notes such as parking or "No boxed
-                gifts, please". The time is optional.</p>
-              <div class="extras-list" id="extrasList"></div>
-              <div><button type="button" class="btn sm ghost" id="addExtra">Add a line</button></div>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec8"><span
-                  class="sec-title">Second language</span></button></legend>
-            <div class="sec-body" id="sec8">
-              <p class="hint">Guests get a button on the card to switch languages. Only one language shows at a time, so
-                the card doesn't get longer.</p>
-              <div class="row">
-                <label class="f">Your card is written in<select id="lang1" data-k="lang1"></select></label>
-                <label class="f">Second language<select id="lang2" data-k="lang2"></select></label>
+            </fieldset>
+            <fieldset id="photoBox">
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec2"><span class="sec-title">Photo</span></button></h2>
+              </legend>
+              <div class="sec-body" id="sec2">
+                <div class="drop" id="drop">
+                  <span id="phPrev"><span class="ph-empty" aria-hidden="true">＋</span></span>
+                  <div class="txt">
+                    <label class="btn ghost sm" for="photoFile" id="photoBtn">Choose a photo</label>
+                    <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+                    <span class="hint" id="photoNote">Or drag one here.</span>
+                  </div>
+                </div>
+                <div id="photoOpts" hidden style="display:grid;gap:12px">
+                  <div class="row">
+                    <label class="f">Placement<select id="pMode" data-p="mode">
+                        <option value="top">Above the text</option>
+                        <option value="bottom">Below the text</option>
+                        <option value="left">Left of the text</option>
+                        <option value="right">Right of the text</option>
+                        <option value="background">Full background</option>
+                      </select></label>
+                    <label class="f" id="pShapeWrap">Shape<select id="pShape" data-p="shape">
+                        <option value="arch">Arch</option>
+                        <option value="circle">Circle / oval</option>
+                        <option value="rect">Rectangle</option>
+                      </select></label>
+                  </div>
+                  <div class="row" id="pSizeRow">
+                    <label class="f">Frame width <output id="oSize"></output><input type="range" id="pSize"
+                        data-p="size" min="30" max="100" step="1"></label>
+                    <label class="f">Frame height <output id="oH"></output><input type="range" id="pH" data-p="h"
+                        min="40" max="200" step="1"></label>
+                  </div>
+                  <p class="hint">Drag the photo on the preview to move it.</p>
+                  <div class="row">
+                    <label class="f">Zoom <output id="oZoom"></output><input type="range" id="pZoom" data-p="zoom"
+                        min="20" max="300" step="1"></label>
+                    <label class="f">Left / right <output id="oPosX"></output><input type="range" id="pPosX" data-p="dx"
+                        min="-100" max="100" step="1"></label>
+                    <label class="f">Up / down <output id="oPosY"></output><input type="range" id="pPosY" data-p="dy"
+                        min="-100" max="100" step="1"></label>
+                  </div>
+                  <label class="f">Filter<select id="pFilter" data-p="filter">
+                      <option value="none">None</option>
+                      <option value="bw">Black and white</option>
+                      <option value="warm">Warm</option>
+                      <option value="faded">Faded</option>
+                      <option value="duo">Duotone (card colours)</option>
+                    </select></label>
+                  <label class="f" id="pFadeWrap">Card colour over photo <output id="oFade"></output><input type="range"
+                      id="pFade" data-p="fade" min="0" max="90" step="1"></label>
+                  <div class="acts">
+                    <button type="button" class="btn sm" id="matchFrame">Fit frame to photo</button>
+                    <button type="button" class="btn sm ghost" id="fitPhoto">Show whole photo</button>
+                    <button type="button" class="btn sm ghost" id="recenter">Fill the frame</button>
+                    <button type="button" class="btn sm ghost" id="removePhoto">Remove photo</button>
+                  </div>
+                </div>
               </div>
-              <div id="trBox" class="tr-box" hidden>
-                <p class="hint" id="trIntro"></p>
-                <div><button type="button" class="btn sm" id="trAll">Translate everything</button></div>
-                <div id="trList" class="tr-list"></div>
-                <p class="hint small">The Translate buttons use MyMemory, a free online translator, so the text of that
-                  line is sent to it. Machine translations can be off, so check them or ask someone who reads the
-                  language. Built-in wording, dates and labels are translated without going online.</p>
+            </fieldset>
+            <div class="step-next"><button type="button" class="btn ghost" data-go="details">Back</button><button
+                type="button" class="btn" data-go="decorate">Next: Decorate</button></div>
+          </div>
+
+          <!-- 3 DECORATE -->
+          <div class="step" id="step-decorate" role="tabpanel" aria-labelledby="st-decorate" hidden>
+            <fieldset id="fdBox" data-open-phone="1">
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec11"><span class="sec-title">Stickers, pictures and text</span></button></h2>
+                <small id="fdCount"></small>
+              </legend>
+              <div class="sec-body" id="sec11">
+                <input type="checkbox" id="fdOn" hidden>
+                <div id="fdTools">
+                  <div class="fd-add">
+                    <button type="button" class="btn" id="fdAddText">Add text</button>
+                    <label class="btn ghost file-btn" id="fdUploadLabel">Upload a picture<input type="file"
+                        id="fdUpload" accept="image/png,image/webp,image/jpeg,image/svg+xml" class="vh"></label>
+                    <label class="chk"><input type="checkbox" id="fdSnap" checked> Snap to guides</label>
+                  </div>
+                  <p class="hint">See-through PNGs or SVGs work best. <button type="button" class="info"
+                      aria-expanded="false" aria-controls="i-up" aria-label="More about uploading pictures">i</button>
+                  </p>
+                  <p class="more" id="i-up" hidden>Like a hand-drawn monogram or a watercolour flower. SVGs are turned
+                    into PNGs. Up to 10 MB.</p>
+                  <h3 class="sub-h">Stickers</h3>
+                  <div class="chips" id="fdCats" role="group" aria-label="Sticker groups"></div>
+                  <div class="fd-lib" id="fdLib"></div>
+                  <div class="fd-props" id="fdProps" hidden></div>
+                  <h3 class="sub-h">Layers</h3>
+                  <p class="hint">Top of the list is in front.</p>
+                  <ol class="sec-list fd-layers" id="fdLayers"></ol>
+                  <p class="vh" id="fdLive" aria-live="polite"></p>
+                </div>
               </div>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend><button type="button" class="sec-toggle" aria-expanded="true" aria-controls="sec10"><span
-                  class="sec-title">When guests open it</span></button></legend>
-            <div class="sec-body" id="sec10">
-              <label class="f">Opening<select id="opening" data-k="opening"></select></label>
-              <div class="row">
-                <label class="f">Falling from the top<select id="fall" data-k="fall"></select></label>
-                <div class="f fx-play"><button type="button" class="btn sm ghost" id="fxPlay">Play it on the
-                    preview</button></div>
+            </fieldset>
+            <div class="step-next"><button type="button" class="btn ghost" data-go="style">Back</button><button
+                type="button" class="btn" data-go="reveal">Next: Reveal</button></div>
+          </div>
+
+          <!-- 4 REVEAL -->
+          <div class="step" id="step-reveal" role="tabpanel" aria-labelledby="st-reveal" hidden>
+            <fieldset data-open-phone="1">
+              <legend>
+                <h2 class="sec-h"><button type="button" class="sec-toggle" aria-expanded="true"
+                    aria-controls="sec10"><span class="sec-title">Envelope, music and petals</span></button></h2>
+              </legend>
+              <div class="sec-body" id="sec10">
+                <label class="f">Opening<select id="opening" data-k="opening"></select></label>
+                <div class="row">
+                  <label class="f">Falling from the top<select id="fall" data-k="fall"></select></label>
+                  <div class="f fx-play"><button type="button" class="btn sm ghost" id="fxPlay">Play on preview</button>
+                  </div>
+                </div>
+                <label class="chk"><input type="checkbox" id="bloom"> Stickers bloom in one by one</label>
+                <p class="hint">Skipped if a guest's phone is set to reduce motion.</p>
+                <h3 class="sub-h">Background music</h3>
+                <div id="musicNone">
+                  <label class="btn sm ghost" for="musicFile" id="musicBtn">Add music</label>
+                  <input type="file" id="musicFile" accept="audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,.mp3,.m4a,.aac"
+                    hidden>
+                </div>
+                <div id="musicSet" hidden class="music-set">
+                  <audio id="musicPreview" controls preload="none"></audio>
+                  <button type="button" class="btn sm ghost" id="removeMusic">Remove music</button>
+                </div>
+                <p class="hint" id="musicNote">MP3 or M4A, up to 10 MB. <button type="button" class="info"
+                    aria-expanded="false" aria-controls="i-music" aria-label="More about music">i</button></p>
+                <p class="more" id="i-music" hidden>Guests tap a play button to start it. Only use music you have the
+                  right to share.</p>
               </div>
-              <label class="chk"><input type="checkbox" id="bloom"> Stickers and text boxes bloom in one by one</label>
-              <p class="hint">Movement is skipped for guests whose phone is set to reduce motion.</p>
-              <h3 class="sub-h">Background music</h3>
-              <div id="musicNone">
-                <label class="btn sm ghost" for="musicFile" id="musicBtn">Add music</label>
-                <input type="file" id="musicFile" accept="audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,.mp3,.m4a,.aac"
-                  hidden>
-              </div>
-              <div id="musicSet" hidden class="music-set">
-                <audio id="musicPreview" controls preload="none"></audio>
-                <button type="button" class="btn sm ghost" id="removeMusic">Remove music</button>
-              </div>
-              <p class="hint" id="musicNote">MP3 or M4A, up to 10 MB. Guests tap a play button to start it. Only use
-                music you have the right to share.</p>
-            </div>
-          </fieldset>
+            </fieldset>
+            <div class="step-next"><button type="button" class="btn ghost" data-go="decorate">Back</button><button
+                type="button" class="btn" data-go="guests">Next: Add guests</button></div>
+          </div>
         </div>
         <div class="preview" id="preview">
           <h2 class="sec">Preview</h2>
           <div class="pv-tools">
-            <button type="button" class="btn sm ghost" id="undoBtn" disabled aria-keyshortcuts="Control+Z">Undo</button>
-            <button type="button" class="btn sm ghost" id="redoBtn" disabled
-              aria-keyshortcuts="Control+Shift+Z">Redo</button>
-            <div id="pvLang" class="pv-lang"></div>
+            <button type="button" class="btn sm ghost" id="undoBtn" disabled aria-keyshortcuts="Control+Z"><svg
+                viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round" />
+              </svg><span class="lbl">Undo</span></button>
+            <button type="button" class="btn sm ghost" id="redoBtn" disabled aria-keyshortcuts="Control+Shift+Z"><svg
+                viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round" />
+              </svg><span class="lbl">Redo</span></button>
           </div>
+          <div id="pvLang" class="pv-lang"></div>
           <div class="pv-frame" id="pvFrame">
             <div class="pv-scale" id="pvScale">
               <div id="designCard"></div>
@@ -341,6 +405,7 @@
             <button type="button" class="btn sm ghost" id="pvToggle" aria-expanded="true" aria-controls="pvFrame">Hide
               preview</button>
           </div>
+          <nav class="ready ready-d" id="ready" aria-label="Ready to send"></nav>
         </div>
       </div>
     </section>
@@ -369,16 +434,17 @@
         </form>
         <div class="contacts-row" id="contactsRow" hidden>
           <button type="button" class="btn ghost" id="fromContacts">Add from contacts</button>
-          <span class="hint">Pick one or more people from your phone. They're added with the seats and side chosen
-            above.</span>
+          <span class="hint">Uses the seats and side chosen above.</span>
         </div>
       </div>
       <div class="panel group-panel" id="groupPanel">
         <div class="group-head">
           <div>
             <h2 class="sec">Group link</h2>
-            <p class="hint">One link for a group chat, such as old classmates or colleagues. Each person types their
-              name and number when they reply, and is added to the list below.</p>
+            <p class="hint">One link for a group chat. Each reply joins your list. <button type="button" class="info"
+                aria-expanded="false" aria-controls="i-grp" aria-label="More about group links">i</button></p>
+            <p class="more" id="i-grp" hidden>Good for old classmates or colleagues. Each person types their name and
+              WhatsApp number when they reply.</p>
           </div>
           <label class="switch"><input type="checkbox" id="grpOn"><span>Group link on</span></label>
         </div>
@@ -398,11 +464,12 @@
             <a class="btn sm ghost" id="grpPreview" href="#" target="_blank" rel="noopener">Preview</a>
             <button type="button" class="btn sm ghost" id="grpNew">Make a new link</button>
           </div>
-          <p class="hint">Anyone who gets this link can reply, even if it's forwarded. Replies from the same WhatsApp
-            number update the earlier reply. Replies that look like someone already on your list are marked <b>possible
-              duplicate</b>.</p>
+          <p class="hint">Anyone with the link can reply. <button type="button" class="info" aria-expanded="false"
+              aria-controls="i-grp2" aria-label="More about who can reply">i</button></p>
+          <p class="more" id="i-grp2" hidden>Even if it's forwarded. A second reply from the same number updates the
+            first. Replies that look like someone already on your list are marked <b>possible duplicate</b>.</p>
         </div>
-        <p class="hint" id="grpOff">Turn this on to get a link you can post in a group chat.</p>
+        <p class="hint" id="grpOff">Turn on to get a link for a group chat.</p>
         <p class="banner" id="grpSetup" hidden>Group links need a one-time database update. In Supabase, open <b>SQL
             Editor</b>, paste the contents of <code>supabase/002_group_links.sql</code>, and click <b>Run</b>. Then
           reload this page.</p>
@@ -436,6 +503,35 @@
       </div>
     </section>
   </main>
+  <dialog class="start" id="startDlg" aria-labelledby="startTitle">
+    <form id="startForm">
+      <p class="start-step" id="startStep">Step 2 of 3</p>
+      <div id="startA">
+        <h2 id="startTitle">Who and when?</h2>
+        <div class="row">
+          <label class="f"><span id="sl1">First name</span><input id="sName1" maxlength="60" autocomplete="off"></label>
+          <label class="f" id="sName2Wrap"><span id="sl2">Second name</span><input id="sName2" maxlength="60"
+              autocomplete="off"></label>
+        </div>
+        <div class="row">
+          <label class="f">Date<input type="date" id="sDate"></label>
+          <label class="f">Starts<input type="time" id="sStart"></label>
+        </div>
+        <label class="f">Venue<input id="sVenue" maxlength="120" placeholder="You can add this later"></label>
+      </div>
+      <div id="startB" hidden>
+        <h2 id="startTitleB">Pick a look</h2>
+        <p class="hint">You can change everything afterwards.</p>
+        <div class="tpls start-tpls" id="sTpls" role="radiogroup" aria-labelledby="startTitleB"></div>
+      </div>
+      <div class="start-acts">
+        <button type="button" class="btn ghost" id="startSkip">Skip</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" id="startBack" hidden>Back</button>
+        <button type="submit" class="btn" id="startNext">Next</button>
+      </div>
+    </form>
+  </dialog>
   <div class="pv-full" id="pvFullView" role="dialog" aria-modal="true" aria-label="Card preview, full size" hidden>
     <div class="pv-full-bar"><span>Preview</span><span class="acts"><button type="button" class="btn sm ghost"
           id="pvFullDownload">Save image</button><button type="button" class="btn sm ghost" id="pvFullPdf">Print
