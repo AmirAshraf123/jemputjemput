@@ -19,7 +19,7 @@ Canva can design a card, but it doesn't help with the hard part of a wedding in 
 | | |
 |---|---|
 | ![Invitation editor with nine templates and a live preview](docs/screenshots/editor.png) | **Design editor**<br>Eight occasions, each with its own wording, and fifteen templates (Songket, Peranakan, Confetti, Festive and more). Sixteen fonts, colour pickers, border patterns, and photos you can place above, below, left or right of the text, or as the background, then drag, zoom and frame. Every part of the card (heading, names, message, date, venue and more) can be dragged into a new order, hidden, and given its own colour and font, with gold, rose-gold or silver foil for the names. **Free design** adds stickers from a hand-drawn library (florals, vines, frames, festive and cultural motifs), your own uploaded artwork and free text boxes that can curve, placed anywhere with snapping guides, layers, pinch-to-resize on phones, and undo. Colour sets can be pulled from your photo, photos can be duotoned or filtered, and petals or sparkles can fall when a guest opens the card. Designs export as a 1080px picture or a print-ready PDF with bleed and crop marks, and can be shared as credited community templates. Add a schedule or extra lines, add a second language (English, Malay, Chinese or Tamil) that guests switch to with a button, with the standard wording and dates translated built-in and a Translate button for the rest, corner ornaments, textured or gradient backgrounds, and square or Stories-shaped cards. A built-in check flags text colours that are hard to read and fixes them in one tap. Save any card as a 1080px picture. On phones the preview stays pinned while you edit. Saved templates can be reused across invitations. Changes save automatically. |
-| ![Guest list with RSVP totals and WhatsApp buttons](docs/screenshots/guests.png) | **Guest list**<br>Add households with seats and family side, send each one a pre-written WhatsApp message with their own link, see totals at a glance, and export to CSV for the caterer. New replies appear without refreshing. |
+| ![Guest list with RSVP totals and WhatsApp buttons](docs/screenshots/guests.png) | **Guest list**<br>Add households with seats and family side, send each one a pre-written WhatsApp message with their own link, see totals at a glance, and export to CSV for the caterer. For weddings with more than one event (an akad nikah in the morning and a reception at night, say), choose who's invited to which; each guest answers each event separately, with its own head-count and totals. New replies appear without refreshing. |
 | <img src="docs/screenshots/group-reply.png" alt="Group link reply form asking for name and WhatsApp number" width="260"> | **Group links**<br>One link for a group chat, such as old classmates. Each person enters their name and WhatsApp number and is added to the guest list. Replying again from the same number updates the earlier reply. Replies that match someone already on the list by number or name are flagged as possible duplicates, and a group reply can never overwrite a personal guest's answer. |
 | <img src="docs/screenshots/guest-phone.png" alt="Guest's invitation on a phone with an RSVP form" width="260"> | **Guest page**<br>Each guest can open the card from an envelope, with optional background music, and sees the card with their name on it, Maps and calendar buttons, and an RSVP form limited to the seats they were given. No sign-up needed. |
 
@@ -57,6 +57,7 @@ flowchart LR
 - **A design layer that survives every screen.** Stickers and text boxes are stored as positions and widths in percent of the card, with font sizes in container query units (`cqw`), so the same design looks right in the editor, on a phone, in the 1080px export and in the 300 dpi PDF. Stickers are one-colour SVGs used as CSS masks, which is what lets any of them take a flat colour or a foil gradient.
 - **Safety without paid services.** Spam on group links is stopped inside Postgres: the reply function reads the caller's IP address from the request headers Supabase passes through, and allows 8 replies per 10 minutes per connection and 60 per link. Shared templates are hidden after three different people report them, and a trigger stops owners from clearing that flag. People can delete their own account, which removes their files from storage and then cascades through every table.
 - **Check-in on the day.** Each guest who accepts gets an entry pass, a QR code of their own link. The host's phone scans it using the browser's built-in `BarcodeDetector` where there is one, or the `jsQR` library where there isn't.
+- **Separate events without breaking old links.** An invitation can have up to six events, each with its own time and place. Guests answer each one, and the reply function checks the answers against the events that guest is actually invited to, then also writes a one-line summary (coming to anything, and the most seats needed at any one event) so totals, filters and older guest pages keep working. The original reply functions stayed in place and now pass through to the new ones.
 - **Works without signal.** A service worker keeps the site's files, fonts and photos, and the guest page keeps the last invitation it opened, so a guest at a venue with no reception can still see the card and the address.
 - **Free-tier realities.** A scheduled ping (`.github/workflows/keep-awake.yml`) stops the free database from pausing, which would otherwise break guest links in the middle of RSVP season.
 
@@ -68,13 +69,19 @@ app.html        dashboard: your invitations
 edit.html       editor: Design and Guests tabs
 invite.html     the page a guest opens
 privacy.html    privacy policy
+css/base.css    shared site styles: colours, header, buttons and forms
+css/home.css    home page and dashboard
+css/editor.css  the editor and guest list
+css/guest.css   the guest page
+css/card.css    the invitation card itself
 js/card.js      templates, fonts and card rendering (shared)
-js/edit.js      editor logic
+js/edit.js      editor: loading, saving, design steps, templates, photo, guest list
+js/edit-*.js    editor parts: events, guest events, languages, import, check-in, palette, export
 js/invite.js    guest page and RSVP
-supabase/schema.sql   tables, security policies, guest functions, storage
 js/stickers.js  the sticker library (original one-colour SVG drawings)
 js/freedesign.js  free design: selection handles, snapping, pinch, layers
-supabase/002_group_links.sql … 005_public_templates.sql   updates for older installs
+supabase/schema.sql   tables, security policies, guest functions, storage
+supabase/002_group_links.sql … 007_events.sql   updates for older installs
 ```
 
 ## Run it yourself
@@ -84,7 +91,6 @@ It takes about 15 minutes with free Supabase and Netlify accounts. See **[docs/S
 ## What's next
 
 - Per-invitation WhatsApp link previews showing the couple's names and photo, using a small server function.
-- Separate RSVPs for multiple events, such as the akad nikah, tea ceremony and reception.
 - A one-tap reminder message to everyone who hasn't replied.
 
 ## Licence

@@ -607,3 +607,41 @@
     animation: none
   }
 }
+
+/* separate events: each one with its own name, date, time and place */
+.c-events {
+  display: grid;
+  gap: 14px;
+  justify-items: var(--ji, center);
+  margin-top: 4px
+}
+
+.c-events .c-ev {
+  display: grid;
+  gap: 1px;
+  justify-items: var(--ji, center)
+}
+
+.c-events .c-ev+.c-ev {
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--acc) 35%, transparent);
+  min-width: 40%
+}
+
+.card-inner .c-ev-name {
+  font-family: var(--nf);
+  font-style: var(--nfs, normal);
+  color: var(--acc);
+  font-size: 1.35em;
+  line-height: 1.15;
+  margin-bottom: 2px
+}
+
+.card-inner .c-events .c-date {
+  font-size: 1.05em
+}
+
+.card-inner .c-events .c-venue {
+  margin-top: 2px;
+  font-size: 1.05em
+}

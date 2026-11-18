@@ -5,7 +5,7 @@
 import { sb, $, toast } from "./sb.js";
 import { playFall, bloom } from "./effects.js";
 import { words } from "./words.js";
-import { cardHTML, langSwitchHTML, translated, cleanDetails, cleanStyle, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord, initialsFor, musicUrl, mix } from "./card.js";
+import { cardHTML, langSwitchHTML, translated, cleanDetails, cleanStyle, esc, fmtDate, timeRange, watchPhotos, eventTitle, hostWord, initialsFor, musicUrl, mix, eventsOf, eventName } from "./card.js";
 
 const params = new URLSearchParams(location.search);
 const parts = location.hash.slice(1).split("/");
@@ -21,6 +21,7 @@ let replyBtn = null, rsvpSeen = false;            // the floating Reply button
 const QR_LIB = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/+esm";   // draws the entry pass
 let formShownAt = Date.now(), quickOk = false;    // for the "too quick to be a person" check
 let mode = "personal";   // "personal": replying as a known guest; "group": filling in the group form
+let myEv = [], perEvent = false;   // separate events: the ones this guest is invited to, and whether they answer each one
 
 watchPhotos();
 $("previewNote").hidden = !preview;
@@ -53,7 +54,7 @@ async function start() {
     if (!error && data) keepCopy("g." + groupToken, data);
     else if (noSignal(error) && lastCopy("g." + groupToken)) { data = lastCopy("g." + groupToken); error = null; showOffline(); }
     if (error || !data) return notFound(error, true);
-    inv = data.invitation; maxSeats = Math.max(1, data.max_seats || 1); guest = null; mode = "group";
+    inv = data.invitation; maxSeats = Math.max(1, data.max_seats || 1); guest = null; mode = "group"; setEvents(data.events);
     setTitle(); render();
   } else {
     if (!token || !(await loadPersonal(token))) notFound();
@@ -65,10 +66,26 @@ async function loadPersonal(t) {
   if (!error && data) keepCopy(t, data);
   else if (noSignal(error) && lastCopy(t)) { data = lastCopy(t); error = null; showOffline(); }
   if (error || !data) return false;
-  token = t; inv = data.invitation; guest = data.guest; maxSeats = Math.max(1, guest.seats || 1); mode = "personal";
+  token = t; inv = data.invitation; guest = data.guest; maxSeats = Math.max(1, guest.seats || 1); mode = "personal"; setEvents(guest.events);
   setTitle(); render();
   return true;
 }
+
+// Before the events database update (007) the server doesn't say which events a guest is invited to:
+// then every event is shown and the guest gives one answer for all of them.
+function setEvents(ids) {
+  const d = cleanDetails(inv.details), all = eventsOf(d);
+  perEvent = all.length > 0 && Array.isArray(ids);
+  myEv = eventsOf(d, Array.isArray(ids) ? ids : null);
+}
+/** A guest's answer for one event; an answer from before the events were set up counts for all of them. */
+function answerFor(g, e) {
+  const r = g?.replies?.[e.id];
+  if (r && (r.s === "yes" || r.s === "no")) return { s: r.s, n: r.s === "yes" ? +r.n || 1 : 0 };
+  if (g && g.status !== "pending" && !Object.keys(g.replies || {}).length) return { s: g.status, n: g.status === "yes" ? g.coming : 0 };
+  return { s: "", n: 0 };
+}
+function evWhen(e) { return [fmtDate(e.date, lang), timeRange(e, lang)].filter(Boolean).join(" · "); }
 
 function setTitle() {
   const d = cleanDetails(inv.details);
@@ -84,12 +101,15 @@ function notFound(err, group) {
   $("card").innerHTML = `<div class="empty"><h2 style="font-family:var(--display);font-weight:400;font-size:32px;margin:0 0 8px">We couldn't find this invitation</h2><p>${why}</p></div>`;
 }
 
-function calLink(d) {
-  if (!d.date) return "";
-  const day = d.date.replace(/-/g, ""), t = (x) => (x || "00:00").replace(":", "") + "00";
-  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(eventTitle(d))
-    + `&dates=${day}T${t(d.start)}/${day}T${t(d.end || d.start)}&ctz=Asia/Singapore&location=` + encodeURIComponent([d.venue, d.address].filter(Boolean).join(", "));
+// d: the invitation's details; ev: one of its events (its own date, time and place), if it has several
+function calLink(d, ev) {
+  const x = ev || d;
+  if (!x.date) return "";
+  const day = x.date.replace(/-/g, ""), t = (v) => (v || "00:00").replace(":", "") + "00";
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(eventTitle(d) + (ev?.name ? " · " + ev.name : ""))
+    + `&dates=${day}T${t(x.start)}/${day}T${t(x.end || x.start)}&ctz=Asia/Singapore&location=` + encodeURIComponent([x.venue, x.address].filter(Boolean).join(", "));
 }
+function mapLink(x) { const place = [x.venue, x.address].filter(Boolean).join(", "); return place ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(place) : ""; }
 
 /* Two-language cards: the guest picks with a button. Start with their last choice, or their phone's language if it's the second one. */
 function pickLang(d) {
@@ -101,7 +121,7 @@ function renderCard() {
   const d = cleanDetails(inv.details);
   if (!lang || (lang !== d.lang1 && lang !== d.lang2)) lang = pickLang(d);
   $("langSw").innerHTML = langSwitchHTML(d, lang);
-  $("card").innerHTML = cardHTML(inv, guest?.name, lang);
+  $("card").innerHTML = cardHTML(inv, guest?.name, lang, myEv.map((e) => e.id));
 }
 $("langSw").addEventListener("click", (e) => {
   const b = e.target.closest("[data-lang]"); if (!b || b.dataset.lang === lang) return;
@@ -118,6 +138,21 @@ function renderDetails() {
   const place = [d.venue, d.address].filter(Boolean).join(", ");   // maps search with the original address
   const map = place ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(place) : "";
   $("details").hidden = false;
+  if (myEv.length) {
+    // one block per event, each with its own Maps and calendar buttons
+    $("details").innerHTML = myEv.map((e) => `<section class="ev-detail">
+        <h2 class="ev-h">${esc(eventName(e, d, lang))}</h2>
+        <dl>
+          ${e.date ? `<dt>${w("date")}</dt><dd>${esc(fmtDate(e.date, lang))}</dd>` : ""}
+          ${timeRange(e) ? `<dt>${w("time")}</dt><dd>${esc(timeRange(e, lang))}</dd>` : ""}
+          ${e.venue || e.address ? `<dt>${w("venue")}</dt><dd>${esc(e.venue)}${e.address ? `<div class="sub">${esc(e.address)}</div>` : ""}</dd>` : ""}
+        </dl>
+        <div class="links">${mapLink(e) ? `<a class="btn ghost sm" href="${mapLink(e)}" target="_blank" rel="noopener">${w("maps")}<span class="vh">: ${esc(e.name)}</span></a>` : ""}
+          ${e.date ? `<a class="btn ghost sm" href="${calLink(d, e)}" target="_blank" rel="noopener">${w("cal")}<span class="vh">: ${esc(e.name)}</span></a>` : ""}</div>
+      </section>`).join("")
+      + (d.dress ? `<dl class="ev-dress"><dt>${w("dress")}</dt><dd>${esc(T("dress"))}</dd></dl>` : "");
+    return;
+  }
   $("details").innerHTML = `<dl>
       ${d.date ? `<dt>${w("date")}</dt><dd>${esc(fmtDate(d.date, lang))}</dd>` : ""}
       ${timeRange(d) ? `<dt>${w("time")}</dt><dd>${esc(timeRange(d, lang))}</dd>` : ""}
@@ -141,13 +176,20 @@ function renderRsvp() {
 
   // Already replied: show the answer, with a way to change it.
   if (mode === "personal" && g.status !== "pending" && !draft) {
-    el.innerHTML = `<div class="thanks"><h3>${g.status === "yes" ? w("seeYou") : w("thanksNo")}</h3>
-      <p class="sub">${g.status === "yes" ? w("saved", g.coming) : w("missed")}</p>
+    const evList = perEvent ? `<ul class="ev-answers">${myEv.map((e) => {
+      const r = answerFor(g, e);
+      return `<li><span class="ev-n">${esc(eventName(e, d, lang))}</span> <span class="pill ${r.s === "yes" ? "yes" : "no"}">${r.s === "yes" ? esc(w("evGoing", r.n)) : esc(w("evNot"))}</span></li>`;
+    }).join("")}</ul>` : "";
+    el.innerHTML = `<div class="thanks"><h3>${perEvent ? w("evSeeYou") : g.status === "yes" ? w("seeYou") : w("thanksNo")}</h3>
+      ${perEvent ? evList : `<p class="sub">${g.status === "yes" ? w("saved", g.coming) : w("missed")}</p>`}
       ${g.status === "yes" && mode === "personal" && !preview ? `<div class="pass" id="pass"><p class="pass-h">${w("passTitle")}</p><div class="pass-qr" id="passQr" role="img" aria-label="${esc(w("passAlt", g.name))}"></div><p class="sub">${esc(g.name)} · ${esc(w("passSeats", g.coming))}</p></div>` : ""}
       <button class="btn ghost" id="change">${w("change")}</button>
       ${isGroup ? `<button class="linkbtn" id="someoneElse">${esc(w("someoneElse", g.name))}</button>` : ""}</div>`;
     replyButton();
-    $("change").onclick = () => { draft = { status: g.status, coming: g.coming || 1, dietary: g.dietary || "", note: g.note || "" }; renderRsvp(); };
+    $("change").onclick = () => {
+      const replies = {}; for (const e of myEv) { const r = answerFor(g, e); if (r.s) replies[e.id] = r; }
+      draft = { status: g.status, coming: g.coming || 1, dietary: g.dietary || "", note: g.note || "", replies }; renderRsvp();
+    };
     if (isGroup) $("someoneElse").onclick = replyForSomeoneElse;
     if ($("passQr")) drawPass();
     return;
@@ -155,8 +197,24 @@ function renderRsvp() {
 
   const groupForm = mode === "group";
   if (!draft) formShownAt = Date.now();
-  draft ||= { status: "", coming: groupForm ? 1 : maxSeats, dietary: "", note: "", name: "", phone: "" };
+  draft ||= { status: "", coming: groupForm ? 1 : maxSeats, dietary: "", note: "", name: "", phone: "", replies: {} };
+  draft.replies ||= {};
   const seatHint = groupForm ? w("upTo", maxSeats) : w("reserved", maxSeats);
+  // separate events: a yes or no for each, and how many for each yes
+  const seatOpts = (n) => Array.from({ length: maxSeats }, (_, i) => `<option ${i + 1 === +n ? "selected" : ""}>${i + 1}</option>`).join("");
+  if (perEvent) {
+    const rs = myEv.map((e) => draft.replies[e.id]?.s);
+    draft.status = rs.every(Boolean) ? (rs.includes("yes") ? "yes" : "no") : "";
+  }
+  const answers = perEvent ? `<p class="sub" style="margin:0">${w("evIntro")}</p>${myEv.map((e) => {
+    const r = draft.replies[e.id] || {}, nm = esc(eventName(e, d, lang));
+    return `<fieldset class="ev-q"><legend><span class="ev-n">${nm}</span>${evWhen(e) ? `<span class="sub">${esc(evWhen(e))}</span>` : ""}</legend>
+      <div class="choice sm"><button type="button" class="y" data-ev="${esc(e.id)}" data-evs="yes" aria-pressed="${r.s === "yes"}">${w("evYes")}</button>
+        <button type="button" class="n" data-ev="${esc(e.id)}" data-evs="no" aria-pressed="${r.s === "no"}">${w("evNo")}</button></div>
+      ${r.s === "yes" && maxSeats > 1 ? `<label class="f">${w("evHow")} <span class="sub">${seatHint}</span><select data-evn="${esc(e.id)}">${seatOpts(r.n)}</select></label>` : ""}
+    </fieldset>`;
+  }).join("")}` : "";
+  const anyYes = perEvent ? myEv.some((e) => draft.replies[e.id]?.s === "yes") : draft.status === "yes";
   el.innerHTML = `<h3 id="rsvpTitle">${w("join")}</h3>
     ${d.rsvpBy ? `<p class="sub" style="margin:0">${esc(w("replyBy", fmtDate(d.rsvpBy, lang)))}</p>` : ""}
     ${groupForm ? `
@@ -164,18 +222,29 @@ function renderRsvp() {
       <label class="f">${w("phone")}<input id="rPhone" type="tel" inputmode="tel" maxlength="40" autocomplete="tel" value="${esc(draft.phone)}" placeholder="9123 4567"></label>
       <p class="hint">${esc(w("numberNote", hostWord(d)))}</p>
       <label class="trap" aria-hidden="true">Leave this empty<input id="rWebsite" tabindex="-1" autocomplete="off"></label>` : ""}
-    <div class="choice"><button type="button" class="y" data-s="yes" aria-pressed="${draft.status === "yes"}">${w("yes")}</button>
-      <button type="button" class="n" data-s="no" aria-pressed="${draft.status === "no"}">${w("no")}</button></div>
-    <div ${draft.status === "yes" ? "" : "hidden"} style="display:grid;gap:12px">
-      <label class="f">${w("howMany")} <span class="sub">${seatHint}</span>
-        <select id="rComing">${Array.from({ length: maxSeats }, (_, i) => `<option ${i + 1 === +draft.coming ? "selected" : ""}>${i + 1}</option>`).join("")}</select></label>
+    ${perEvent ? answers : `<div class="choice"><button type="button" class="y" data-s="yes" aria-pressed="${draft.status === "yes"}">${w("yes")}</button>
+      <button type="button" class="n" data-s="no" aria-pressed="${draft.status === "no"}">${w("no")}</button></div>`}
+    <div ${anyYes ? "" : "hidden"} style="display:grid;gap:12px">
+      ${perEvent ? "" : `<label class="f">${w("howMany")} <span class="sub">${seatHint}</span>
+        <select id="rComing">${seatOpts(draft.coming)}</select></label>`}
       <label class="f">${w("diet")}<input id="rDiet" maxlength="200" value="${esc(draft.dietary)}" placeholder="${esc(w("dietPh"))}"></label>
     </div>
     <label class="f">${esc(w("note", hostWord(d)))}<textarea id="rNote" maxlength="500">${esc(draft.note)}</textarea></label>
     <p class="form-error" id="rErr" role="alert" hidden></p>
     <button class="btn" id="rSend" ${draft.status && !preview ? "" : "disabled"}>${preview ? "Sending is off in preview" : w("send")}</button>`;
   replyButton();
-  el.querySelector(".choice").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; readDraft(); draft.status = b.dataset.s; renderRsvp(); };
+  if (perEvent) {
+    el.querySelectorAll(".ev-q .choice").forEach((c) => {
+      c.onclick = (e) => {
+        const b = e.target.closest("button[data-evs]"); if (!b) return;
+        readDraft();
+        const id = b.dataset.ev, prev = draft.replies[id];
+        draft.replies[id] = { s: b.dataset.evs, n: b.dataset.evs === "yes" ? prev?.n || (groupForm ? 1 : maxSeats) : 0 };
+        renderRsvp();
+        el.querySelector(`[data-ev="${CSS.escape(id)}"][data-evs="${b.dataset.evs}"]`)?.focus();
+      };
+    });
+  } else el.querySelector(".choice").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; readDraft(); draft.status = b.dataset.s; renderRsvp(); };
   $("rSend").onclick = groupForm ? sendGroup : send;
 }
 
@@ -186,17 +255,37 @@ function readDraft() {
   if ($("rNote")) draft.note = v("rNote");
   if ($("rName")) draft.name = v("rName");
   if ($("rPhone")) draft.phone = v("rPhone");
+  document.querySelectorAll("[data-evn]").forEach((sel) => { const r = draft.replies?.[sel.dataset.evn]; if (r) r.n = +sel.value; });
 }
+/** The answers to send for separate events, and a single answer for the older reply functions. */
+function evReplies() {
+  const out = {}; for (const e of myEv) { const r = draft.replies[e.id]; out[e.id] = { s: r.s, n: r.s === "yes" ? r.n : 0 }; }
+  const vals = Object.values(out), yes = vals.filter((r) => r.s === "yes");
+  return { replies: out, status: yes.length ? "yes" : "no", coming: Math.max(1, ...yes.map((r) => r.n)) };
+}
+// the events database update (007) hasn't been run: fall back to one answer for everything
+function missingFn(error) { return /Could not find the function|PGRST202|does not exist/i.test(error?.message || "") || error?.code === "PGRST202"; }
 
 function showError(msg) { const e = $("rErr"); e.textContent = msg; e.hidden = false; }
 function busy(on) { const b = $("rSend"); b.disabled = on; b.textContent = on ? w("sending") : w("send"); }
 
 async function send() {
   if (preview) return;
-  readDraft(); busy(true);
-  const { data, error } = await sb.rpc("submit_rsvp", {
-    p_token: token, p_status: draft.status, p_coming: draft.coming, p_dietary: draft.dietary.trim(), p_note: draft.note.trim(),
-  });
+  readDraft();
+  if (perEvent && myEv.some((e) => !draft.replies[e.id]?.s)) { showError(w("errEach")); return; }
+  busy(true);
+  let res;
+  if (perEvent) {
+    const r = evReplies();
+    res = await sb.rpc("submit_rsvp_events", { p_token: token, p_replies: r.replies, p_dietary: draft.dietary.trim(), p_note: draft.note.trim() });
+    if (missingFn(res.error)) { draft.status = r.status; draft.coming = r.coming; }
+  }
+  if (!perEvent || missingFn(res.error)) {
+    res = await sb.rpc("submit_rsvp", {
+      p_token: token, p_status: draft.status, p_coming: draft.coming, p_dietary: draft.dietary.trim(), p_note: draft.note.trim(),
+    });
+  }
+  const { data, error } = res;
   if (error) { busy(false); showError(w("errSend")); return; }
   guest = { ...guest, ...data }; draft = null; renderRsvp(); toast(w("sent"), { error: false });
 }
@@ -209,11 +298,17 @@ async function sendGroup() {
   if (Date.now() - formShownAt < 2500 && !quickOk) { quickOk = true; showError(w("errQuick")); return; }
   if (!draft.name.trim()) { showError(w("errName")); $("rName").focus(); return; }
   if (draft.phone.replace(/\D/g, "").length < 8) { showError(w("errPhone")); $("rPhone").focus(); return; }
+  if (perEvent && myEv.some((e) => !draft.replies[e.id]?.s)) { showError(w("errEach")); return; }
   busy(true);
-  const { data, error } = await sb.rpc("submit_group_rsvp", {
-    p_token: groupToken, p_name: draft.name.trim(), p_phone: draft.phone.trim(), p_status: draft.status,
-    p_coming: draft.coming, p_dietary: draft.dietary.trim(), p_note: draft.note.trim(),
-  });
+  const base = { p_token: groupToken, p_name: draft.name.trim(), p_phone: draft.phone.trim(), p_dietary: draft.dietary.trim(), p_note: draft.note.trim() };
+  let res;
+  if (perEvent) {
+    const r = evReplies();
+    res = await sb.rpc("submit_group_rsvp_events", { ...base, p_status: null, p_coming: null, p_replies: r.replies });
+    if (missingFn(res.error)) { draft.status = r.status; draft.coming = r.coming; }
+  }
+  if (!perEvent || missingFn(res.error)) res = await sb.rpc("submit_group_rsvp", { ...base, p_status: draft.status, p_coming: draft.coming });
+  const { data, error } = res;
   if (error) {
     busy(false);
     if (/Too many replies|a lot of replies/i.test(error.message || "")) { showError(w("errBusy")); return; }
@@ -224,7 +319,8 @@ async function sendGroup() {
   }
   remember(data.token);
   token = data.token; mode = "personal"; maxSeats = Math.max(1, data.seats || maxSeats);
-  guest = { name: data.name, seats: data.seats, status: data.status, coming: data.coming, dietary: data.dietary, note: data.note };
+  guest = { name: data.name, seats: data.seats, status: data.status, coming: data.coming, dietary: data.dietary, note: data.note, replies: data.replies || {}, events: data.events };
+  if (Array.isArray(data.events)) setEvents(data.events);
   draft = null; render();
   toast(data.updated ? w("updated") : w("sent"), { error: false });
 }
@@ -233,7 +329,7 @@ function replyForSomeoneElse() {
   forget(); token = ""; guest = null; draft = null; mode = "group";
   sb.rpc("get_group_invite", { p_token: groupToken }).then(({ data }) => {
     if (!data) return notFound(null, true);
-    inv = data.invitation; maxSeats = Math.max(1, data.max_seats || 1); render();
+    inv = data.invitation; maxSeats = Math.max(1, data.max_seats || 1); setEvents(data.events); render();
     $("rsvp").scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }

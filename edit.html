@@ -18,6 +18,7 @@
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,500&display=swap">
   <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/editor.css">
   <link rel="stylesheet" href="css/card.css">
 </head>
 
@@ -81,13 +82,26 @@
                     aria-controls="sec5"><span class="sec-title">Date and place</span></button></h2>
               </legend>
               <div class="sec-body" id="sec5">
-                <div class="row">
-                  <label class="f">Date<input type="date" id="date" data-k="date"></label>
-                  <label class="f">Starts<input type="time" id="start" data-k="start"></label>
-                  <label class="f">Ends<input type="time" id="end" data-k="end"></label>
+                <label class="chk multi-chk"><input type="checkbox" id="multiOn"> This has more than one event
+                  <button type="button" class="info" aria-expanded="false" aria-controls="i-multi"
+                    aria-label="More about separate events">i</button></label>
+                <p class="more" id="i-multi" hidden>For example an akad nikah in the morning and a reception at night,
+                  each with its own time and place. Guests answer each one, and on the Guests tab you choose who's
+                  invited to which.</p>
+                <div id="singleBox">
+                  <div class="row">
+                    <label class="f">Date<input type="date" id="date" data-k="date"></label>
+                    <label class="f">Starts<input type="time" id="start" data-k="start"></label>
+                    <label class="f">Ends<input type="time" id="end" data-k="end"></label>
+                  </div>
+                  <label class="f">Venue<input id="venue" data-k="venue" maxlength="120"></label>
+                  <label class="f">Address<input id="address" data-k="address" maxlength="200"></label>
                 </div>
-                <label class="f">Venue<input id="venue" data-k="venue" maxlength="120"></label>
-                <label class="f">Address<input id="address" data-k="address" maxlength="200"></label>
+                <div id="eventsBox" hidden>
+                  <ol class="ev-list" id="evList" aria-label="Events"></ol>
+                  <div><button type="button" class="btn sm ghost" id="addEvent">Add an event</button></div>
+                  <datalist id="evNames"></datalist>
+                </div>
                 <div class="row">
                   <label class="f">Dress code<input id="dress" data-k="dress" maxlength="80"
                       placeholder="e.g. Smart casual"></label>
@@ -417,6 +431,11 @@
     <!-- GUESTS -->
     <section id="v-guests" hidden>
       <div class="stats" id="stats"></div>
+      <div class="ev-stats" id="evStats" hidden></div>
+      <p class="banner" id="evDbNote" hidden>Answers per event need a one-time database update. In Supabase, open
+        <b>SQL Editor</b>, paste the contents of <code>supabase/007_events.sql</code>, and click <b>Run</b>. Until then,
+        guests give one answer for everything.
+      </p>
       <div class="panel">
         <h2 class="sec">Add a guest or household</h2>
         <form class="addform" id="addForm">
@@ -434,6 +453,10 @@
             <input id="gGroup" list="groupSuggest" maxlength="40" placeholder="e.g. Family" autocomplete="off" hidden>
           </label>
           <datalist id="groupSuggest"></datalist>
+          <fieldset class="g-events" id="gEventsBox" hidden>
+            <legend>Invited to</legend>
+            <div class="chk-row" id="gEvents"></div>
+          </fieldset>
           <button class="btn" type="submit">Add guest</button>
         </form>
         <div class="import-row">
@@ -457,6 +480,10 @@
           <label class="switch"><input type="checkbox" id="grpOn"><span>Group link on</span></label>
         </div>
         <div id="grpBody" hidden>
+          <fieldset class="g-events" id="grpEventsBox" hidden>
+            <legend>This link is for</legend>
+            <div class="chk-row" id="grpEvents"></div>
+          </fieldset>
           <div class="group-row">
             <label class="f">Most seats per reply
               <select id="grpMax"></select>
@@ -490,6 +517,8 @@
         <button class="chip" data-f="dup" aria-pressed="false" id="dupChip" hidden>Possible duplicates</button>
         <label class="group-filter" id="groupFilterWrap" hidden><span class="vh" id="groupFilterLabel">Show
             side</span><select id="groupFilter"></select></label>
+        <label class="group-filter" id="evFilterWrap" hidden><span class="vh">Show event</span><select
+            id="evFilter"></select></label>
         <span class="spacer"></span>
         <span class="live" id="live"><i></i><span>Connecting…</span></span>
         <button class="btn sm" id="checkinBtn">Check-in</button>

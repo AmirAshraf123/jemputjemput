@@ -25,8 +25,12 @@ All file paths below are relative to the top of the project folder.
 | `js/words.js` | What the guest page says, in English, Malay, Chinese and Tamil |
 | `js/effects.js` | Falling petals, sparkles and confetti, and stickers blooming in, when guests open the card |
 | `js/edit.js`, `js/dashboard.js`, `js/invite.js`, `js/landing.js` | The code for each page |
+| `js/edit-events.js`, `js/edit-guest-events.js` | Separate events: setting them up, and who's invited to which |
+| `js/edit-languages.js`, `js/edit-import.js`, `js/edit-checkin.js`, `js/edit-palette.js`, `js/edit-export.js` | Other parts of the editor: second language, importing guests, check-in, colours from the photo, saving as a picture or PDF |
 | `js/sb.js` | Connects to Supabase and a few shared helpers |
-| `css/base.css`, `css/card.css` | Site styles and card styles |
+| `css/base.css` | Styles every page shares |
+| `css/home.css`, `css/editor.css`, `css/guest.css` | Styles for the home page and dashboard, the editor, and the guest page |
+| `css/card.css` | How the invitation card looks |
 | `img/` | The Jemput logo (`logo.svg`, `logo-120.png`, `logo-512.png`), browser icon, and home-screen icons |
 | `manifest.webmanifest` | Lets people add Jemput to their phone's home screen like an app |
 | `supabase/schema.sql` | Sets up the database, security rules and photo storage (for a new setup) |
@@ -34,6 +38,7 @@ All file paths below are relative to the top of the project folder.
 | `supabase/003_guest_groups.sql` | One-time update for setups made before guest groups (birthdays and other occasions) existed |
 | `supabase/004_music.sql` | One-time update that lets invitations have background music |
 | `supabase/006_safety_and_checkin.sql` | One-time update for account deletion, spam limits on group links, reporting shared templates, and check-in on the day |
+| `supabase/007_events.sql` | One-time update for separate events (for example an akad nikah and a reception), each with its own replies |
 | `sw.js` | Offline support: keeps a copy of the site on guests' phones so the invitation opens without signal |
 | `supabase/005_public_templates.sql` | One-time update that lets people share templates with everyone (community templates) |
 | `.github/workflows/keep-awake.yml` | Optional: keeps a free Supabase project from pausing (step 6C) |
@@ -50,7 +55,7 @@ All file paths below are relative to the top of the project folder.
 
 This creates the tables, makes sure each person can only see their own invitations, sets up the photo storage, and adds the two functions guests use to view their invitation and reply. Guests never need an account.
 
-> **Set up Jemput before these updates?** Run each update you haven't run yet, the same way, once and in order: `supabase/002_group_links.sql` (group links), then `supabase/003_guest_groups.sql` (guest groups for birthdays and other occasions), then `supabase/004_music.sql` (background music), then `supabase/005_public_templates.sql` (community templates), then `supabase/006_safety_and_checkin.sql` (delete account, spam limits, template reports, check-in). They don't touch your existing invitations or guests, and until you run them everything else keeps working.
+> **Set up Jemput before these updates?** Run each update you haven't run yet, the same way, once and in order: `supabase/002_group_links.sql` (group links), then `supabase/003_guest_groups.sql` (guest groups for birthdays and other occasions), then `supabase/004_music.sql` (background music), then `supabase/005_public_templates.sql` (community templates), then `supabase/006_safety_and_checkin.sql` (delete account, spam limits, template reports, check-in), then `supabase/007_events.sql` (separate events). They don't touch your existing invitations or guests, and until you run them everything else keeps working.
 
 ### 3. Connect the website to your project
 1. In Supabase, go to **Project Settings → API**.

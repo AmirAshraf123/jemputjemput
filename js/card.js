@@ -47,6 +47,19 @@ export const LANGS = {
 };
 /* Ready-made translations of the standard wording, so most cards need no typing or online translator.
    Each row is the same phrase in every language; a match in any language gives the others. */
+/* Common names for separate events, offered as suggestions in the editor and translated without typing. */
+export const EVENT_NAMES = [
+  { en: "Akad nikah", ms: "Akad nikah", zh: "回教婚礼仪式", ta: "நிக்காஹ்" },
+  { en: "Solemnisation", ms: "Majlis pernikahan", zh: "证婚仪式", ta: "திருமணப் பதிவு" },
+  { en: "Reception", ms: "Majlis resepsi", zh: "婚宴", ta: "வரவேற்பு" },
+  { en: "Bertandang", ms: "Majlis bertandang", zh: "男方宴客", ta: "மணமகன் வீட்டு விருந்து" },
+  { en: "Tea ceremony", ms: "Majlis minum teh", zh: "敬茶仪式", ta: "தேநீர் சடங்கு" },
+  { en: "Wedding dinner", ms: "Makan malam perkahwinan", zh: "结婚晚宴", ta: "திருமண இரவு விருந்து" },
+  { en: "Dinner", ms: "Makan malam", zh: "晚宴", ta: "இரவு விருந்து" },
+  { en: "Lunch", ms: "Jamuan makan tengah hari", zh: "午宴", ta: "மதிய விருந்து" },
+  { en: "Ceremony", ms: "Majlis", zh: "仪式", ta: "விழா" },
+  { en: "Mehndi night", ms: "Malam berinai", zh: "彩绘之夜", ta: "மெஹந்தி இரவு" },
+];
 const PHRASES = [
   // wedding
   { en: "Together with their families", ms: "Bersama keluarga mereka", zh: "携同双方家人", ta: "குடும்பத்தினருடன் இணைந்து" },
@@ -72,6 +85,8 @@ const PHRASES = [
   // party
   { en: "You're invited to", ms: "Anda dijemput ke", zh: "诚邀您参加", ta: "உங்களை அன்புடன் அழைக்கிறோம்" },
   { en: "We'd love you to join us.", ms: "Kami amat berbesar hati jika anda dapat bersama kami.", zh: "期待您的光临。", ta: "உங்கள் வருகையை எதிர்பார்க்கிறோம்." },
+  // names of separate events
+  ...EVENT_NAMES,
 ];
 const norm = (t) => String(t || "").trim().replace(/\s+/g, " ").replace(/[’‘]/g, "'").toLowerCase();
 /** The built-in translation of a phrase, or "" if it isn't one of the standard phrases. */
@@ -529,9 +544,42 @@ export function cleanDetails(d) {
   out.order = [...new Set((Array.isArray(d.order) ? d.order : []).filter((k) => keys.includes(k)))];
   for (const k of keys) if (!out.order.includes(k)) out.order.push(k);   // sections added later go at the end
   out.hidden = [...new Set((Array.isArray(d.hidden) ? d.hidden : []).filter((k) => keys.includes(k)))];
+  // separate events: { id, name, date, start, end, venue, address, tr: translated name }
+  out.multi = d.multi === "1" || d.multi === true ? "1" : "";
+  const seen = new Set();
+  out.events = (Array.isArray(d.events) ? d.events : []).slice(0, MAX_EVENTS).map((x, i) => {
+    let id = String(x?.id ?? "");
+    if (!/^[a-z0-9]{1,12}$/.test(id) || seen.has(id)) { id = "e" + (i + 1); while (seen.has(id)) id += "x"; }
+    seen.add(id);
+    const str = (k, n) => String(x?.[k] ?? "").slice(0, n);
+    return {
+      id, name: str("name", 60), date: str("date", 10), start: str("start", 5), end: str("end", 5), venue: str("venue", 120), address: str("address", 200),
+      ...(cleanTr(x?.tr, 120) ? { tr: cleanTr(x.tr, 120) } : {})
+    };
+  });
+  out.groupEvents = [...new Set((Array.isArray(d.groupEvents) ? d.groupEvents : []).filter((id) => seen.has(id)))];
   return out;
 }
 
+export const MAX_EVENTS = 6;
+/** The separate events on an invitation (empty when it's a single event), optionally only those in `only`. */
+export function eventsOf(d, only) {
+  d = d?.events && "multi" in d ? d : cleanDetails(d);
+  if (!d.multi || !d.events.length) return [];
+  const list = Array.isArray(only) && only.length ? d.events.filter((e) => only.includes(e.id)) : [];
+  return list.length ? list : d.events;
+}
+/** The date, time and place to use where one is needed (the dashboard, WhatsApp text, checks): the earliest event, or the card's own. */
+export function mainEvent(d) {
+  const ev = eventsOf(d).filter((e) => e.date).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  const e = ev[0] || eventsOf(d)[0];
+  return e ? { date: e.date, start: e.start, end: e.end, venue: e.venue, address: e.address } : { date: d.date, start: d.start, end: d.end, venue: d.venue, address: d.address };
+}
+/** An event's name in a language: a saved translation, a built-in one, or as typed. */
+export function eventName(e, d, lang) {
+  if (!lang || lang === d.lang1) return e.name;
+  return translated(e.name, e.tr, { ...d, lang2: lang }).text;
+}
 export function fmtDate(d, lang = "en") {
   if (!d) return "";
   const x = new Date(d + "T00:00:00");
@@ -555,7 +603,7 @@ export function langSwitchHTML(d, current) {
 
 /* ---------- rendering ---------- */
 /** inv = { details, style, photo }. Returns the card's HTML. */
-export function cardHTML(inv, guestName, lang) {
+export function cardHTML(inv, guestName, lang, onlyEvents) {
   const d = cleanDetails(inv.details), s = cleanStyle(inv.style), p = cleanPhoto(inv.photo), src = photoUrl(p), occ = occasionOf(d);
   ensureFonts([s.nameFont, s.bodyFont, ...PART_STYLE.map((x) => x.font && s[x.font]).filter(Boolean), ...s.layers.filter((x) => x.type === "text" && x.font).map((x) => x.font)]);
   const orn = s.ornament === "none" ? "" : s.ornament === "rule" ? `<div class="c-orn rule"></div>` : `<div class="c-orn" aria-hidden="true">${ORN[s.ornament]}</div>`;
@@ -582,13 +630,17 @@ export function cardHTML(inv, guestName, lang) {
   const extras = d.extras.filter((x) => x.text.trim() || x.time.trim());
   const xText = (x) => (second && x.text.trim() ? translated(x.text, x.tr, d).text : x.text);
   const dress = T("dress");
+  const evs = eventsOf(d, onlyEvents);
   const parts = {
     headline: d.headline ? `<p class="c-head">${esc(T("headline"))}</p>` : "",
     names,
     message: d.message ? `<p class="c-msg">${esc(T("message"))}</p>` : "",
     divider: orn,
-    when: `<p class="c-date">${esc(fmtDate(d.date, L) || LABELS.noDate[L]())}</p><p class="c-time">${esc(timeRange(d, L))}</p>`,
-    where: (d.venue ? `<p class="c-venue">${esc(T("venue"))}</p>` : "") + (d.address ? `<p class="c-addr">${esc(T("address"))}</p>` : ""),
+    when: evs.length ? `<div class="c-events">${evs.map((e) => `<div class="c-ev"><p class="c-ev-name">${esc(eventName(e, d, L) || "Event")}</p>`
+      + `<p class="c-date">${esc(fmtDate(e.date, L) || LABELS.noDate[L]())}</p>${timeRange(e, L) ? `<p class="c-time">${esc(timeRange(e, L))}</p>` : ""}`
+      + (e.venue ? `<p class="c-venue">${esc(e.venue)}</p>` : "") + (e.address ? `<p class="c-addr">${esc(e.address)}</p>` : "") + `</div>`).join("")}</div>`
+      : `<p class="c-date">${esc(fmtDate(d.date, L) || LABELS.noDate[L]())}</p><p class="c-time">${esc(timeRange(d, L))}</p>`,
+    where: evs.length ? "" : (d.venue ? `<p class="c-venue">${esc(T("venue"))}</p>` : "") + (d.address ? `<p class="c-addr">${esc(T("address"))}</p>` : ""),
     dress: d.dress ? `<p class="c-dress">${esc(LABELS.dress[L](dress))}</p>` : "",
     extras: extras.length ? `<div class="c-extras">${extras.map((x) => `<p class="c-x">${x.time.trim() ? `<span class="c-xt">${esc(x.time)}</span>` : ""}<span>${esc(xText(x))}</span></p>`).join("")}</div>` : "",
   };

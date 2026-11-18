@@ -3,10 +3,10 @@
      and fall back to the last copy when there's no signal.
    - Fonts, photos, music and code libraries never change once published, so they come from the saved copy first.
    - Replies and anything else sent to the database always need the network; they're never cached. */
-const VERSION = "jemput-v1";
+const VERSION = "jemput-v2";
 const SHELL = [
   "./", "index.html", "app.html", "edit.html", "invite.html", "privacy.html", "manifest.webmanifest",
-  "css/base.css", "css/card.css",
+  "css/base.css", "css/card.css", "css/home.css", "css/guest.css", "css/editor.css",
   "js/theme.js", "js/sb.js", "js/base-url.js", "js/config.js", "js/site.js", "js/card.js", "js/stickers.js", "js/words.js",
   "js/effects.js", "js/invite.js", "js/landing.js", "js/dashboard.js",
   "img/logo.svg", "img/favicon.svg", "img/icon-192.png",

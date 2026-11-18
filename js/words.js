@@ -2,6 +2,8 @@
    Values are strings, or functions for wording that includes a number or a name. */
 const W = {
   en: {
+    evIntro: "Please answer for each event.", evYes: "I'll be there", evNo: "Can't make it", evHow: "How many?",
+    errEach: "Please answer for each event.", evGoing: (n) => `${n} coming`, evNot: "Not coming", evSeeYou: "Thank you for replying!",
     offline: "You're offline. This is the invitation as it was when you last opened it. Replying needs a connection.",
     passTitle: "Your entry pass: show this at the door", passAlt: (n) => `Entry pass QR code for ${n}`, passSeats: (n) => `${n} ${n === 1 ? "seat" : "seats"}`,
     errQuick: "That was quick! Please check your details, then press Send again.", errBusy: "Lots of replies are arriving right now. Please try again in a few minutes.",
@@ -20,6 +22,8 @@ const W = {
     play: "Play music", pause: "Pause music",
   },
   ms: {
+    evIntro: "Sila jawab bagi setiap majlis.", evYes: "Saya hadir", evNo: "Tidak dapat hadir", evHow: "Berapa orang?",
+    errEach: "Sila jawab bagi setiap majlis.", evGoing: (n) => `${n} orang hadir`, evNot: "Tidak hadir", evSeeYou: "Terima kasih kerana membalas!",
     offline: "Anda di luar talian. Ini jemputan seperti kali terakhir anda membukanya. Untuk membalas, sambungkan ke internet.",
     passTitle: "Pas masuk anda: tunjukkan di pintu", passAlt: (n) => `Kod QR pas masuk untuk ${n}`, passSeats: (n) => `${n} tempat`,
     errQuick: "Cepatnya! Sila semak butiran anda, kemudian tekan Hantar sekali lagi.", errBusy: "Banyak jawapan sedang diterima. Sila cuba lagi dalam beberapa minit.",
@@ -38,6 +42,8 @@ const W = {
     play: "Main muzik", pause: "Jeda muzik",
   },
   zh: {
+    evIntro: "请逐一回复每个活动。", evYes: "我会出席", evNo: "无法出席", evHow: "几位？",
+    errEach: "请逐一回复每个活动。", evGoing: (n) => `${n}位出席`, evNot: "不出席", evSeeYou: "感谢您的回复！",
     offline: "您目前处于离线状态。这是您上次打开时的请柬。回复需要连接网络。",
     passTitle: "您的入场凭证：请在门口出示", passAlt: (n) => `${n}的入场二维码`, passSeats: (n) => `${n}个座位`,
     errQuick: "填得真快！请检查您的资料，然后再按一次发送。", errBusy: "目前回复较多，请几分钟后再试。",
@@ -56,6 +62,8 @@ const W = {
     play: "播放音乐", pause: "暂停音乐",
   },
   ta: {
+    evIntro: "ஒவ்வொரு நிகழ்வுக்கும் பதிலளிக்கவும்.", evYes: "நான் வருவேன்", evNo: "வர இயலாது", evHow: "எத்தனை பேர்?",
+    errEach: "ஒவ்வொரு நிகழ்வுக்கும் பதிலளிக்கவும்.", evGoing: (n) => `${n} பேர் வருகிறார்கள்`, evNot: "வரவில்லை", evSeeYou: "பதிலளித்ததற்கு நன்றி!",
     offline: "நீங்கள் இணைப்பில் இல்லை. கடைசியாகத் திறந்தபோது இருந்த அழைப்பு இது. பதிலளிக்க இணைய இணைப்பு தேவை.",
     passTitle: "உங்கள் நுழைவுச் சீட்டு: வாசலில் காட்டவும்", passAlt: (n) => `${n} அவர்களுக்கான நுழைவு QR குறியீடு`, passSeats: (n) => `${n} இருக்கைகள்`,
     errQuick: "மிக வேகம்! உங்கள் விவரங்களைச் சரிபார்த்து, மீண்டும் அனுப்பு என்பதை அழுத்தவும்.", errBusy: "இப்போது பல பதில்கள் வருகின்றன. சில நிமிடங்களில் மீண்டும் முயலவும்.",

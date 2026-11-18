@@ -1,0 +1,340 @@
+/* Jemput: the home page (index.html) and the list of invitations (app.html). Loaded after base.css. */
+
+/* ---------- landing ---------- */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+  gap: 48px;
+  align-items: center;
+  padding-block: 32px
+}
+
+.hero h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(40px, 6vw, 64px);
+  line-height: 1.05;
+  margin: 0 0 16px;
+  text-wrap: balance
+}
+
+.hero p.lead {
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 46ch;
+  margin: 0 0 24px
+}
+
+.signin {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+  max-width: 440px
+}
+
+.signin .row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap
+}
+
+.signin input {
+  flex: 1 1 220px
+}@media (max-width:860px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr)
+  }
+}
+
+/* ---------- dashboard ---------- */
+.dash-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px
+}
+
+.dash-head h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 40px;
+  margin: 0
+}
+
+.occ-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px
+}
+
+.new-picker {
+  margin-bottom: 22px
+}
+
+.invs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px
+}
+
+.inv {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: grid
+}
+
+.inv a.open {
+  color: inherit;
+  text-decoration: none;
+  display: grid;
+  gap: 10px;
+  padding: 12px
+}
+
+.inv .thumb {
+  height: 110px
+}
+
+.inv .thumb-in {
+  font-size: 30px
+}
+
+.inv h3,
+.inv .inv-title {
+  margin: 0;
+  font-size: 16px
+}
+
+.inv .meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums
+}
+
+.inv .foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0 12px 12px
+}
+
+.site-foot {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-block: 20px;
+  color: var(--muted);
+  font-size: 13px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: space-between
+}
+
+.site-foot a {
+  color: inherit
+}
+
+/* dashboard: progress and next step on each invitation */
+.inv .bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--sunk);
+  overflow: hidden;
+  margin: 2px 0
+}
+
+.inv .bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px
+}
+
+.inv .next {
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  font: 600 14px var(--ui);
+  color: var(--accent);
+  text-decoration: none
+}
+
+.inv .next::after {
+  content: "→"
+}
+
+.inv .next:hover {
+  text-decoration: underline
+}
+
+/* ---------- home page ---------- */
+.hero {
+  align-items: start
+}
+
+.try-h {
+  margin: 0;
+  font: 700 17px var(--ui)
+}
+
+.try-looks {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  background: none;
+  display: grid;
+  gap: 6px
+}
+
+.try-looks legend {
+  font: 600 14px var(--ui);
+  color: var(--fg);
+  padding: 0;
+  margin-bottom: 6px
+}
+
+.try-tpls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px
+}
+
+.try-tpls .tpl {
+  padding: 4px;
+  font-size: 12px
+}
+
+.try-tpls .tpl[aria-checked="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent)
+}
+
+.try-tpls .thumb {
+  height: 46px
+}
+
+.try-tpls .thumb-in {
+  font-size: 16px
+}
+
+.hero-card {
+  position: sticky;
+  top: 16px
+}
+
+.steps3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  padding-block: 28px
+}
+
+.steps3 div {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 4px
+}
+
+.steps3 svg {
+  width: 56px;
+  height: 56px;
+  color: var(--accent);
+  margin-bottom: 6px
+}
+
+.steps3 b {
+  font: 700 18px var(--ui)
+}
+
+.steps3 span {
+  color: var(--muted)
+}
+
+.signin-wrap {
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+  margin: 0 auto 32px;
+  scroll-margin-top: 16px
+}
+
+.signin-wrap .signin {
+  border: 0;
+  padding: 0;
+  background: none;
+  max-width: none
+}@media (max-width:860px) {
+  .hero {
+    gap: 20px
+  }
+
+  .hero-text {
+    display: contents
+  }
+
+  .hero h1 {
+    order: 1;
+    margin: 0
+  }
+
+  .hero p.lead {
+    order: 2;
+    margin: 0
+  }
+
+  .hero-card {
+    position: static;
+    order: 3;
+    max-width: 360px;
+    width: 100%;
+    justify-self: center
+  }
+}
+
+@media (max-width:560px) {
+  .steps3 {
+    grid-template-columns: 1fr;
+    gap: 22px
+  }
+}
+
+/* dashboard: account section */
+.account {
+  margin-top: 28px;
+  display: grid;
+  gap: 10px
+}
+
+.danger-zone summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--no, #8a2a1c)
+}
+
+.dz-body {
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+  padding: 4px 0 6px
+}
+
+.dz-body p {
+  margin: 0
+}

@@ -1,5 +1,5 @@
 import { sb, requireUser, signOut, $, toast, isConfigured, showSetupNotice } from "./sb.js";
-import { thumbHTML, cleanDetails, cleanStyle, fmtDate, esc, PRESETS, presetById, OCCASIONS, eventTitle, initialsFor, defaultDetailsFor } from "./card.js";
+import { thumbHTML, cleanDetails, cleanStyle, fmtDate, esc, PRESETS, presetById, OCCASIONS, eventTitle, initialsFor, defaultDetailsFor, mainEvent, eventsOf } from "./card.js";
 
 if (!isConfigured) showSetupNotice();
 const user = await requireUser();
@@ -48,7 +48,7 @@ function render() {
     // the one thing to do next on this invitation
     const occ = OCCASIONS[d.occasion];
     const next = !(d.name1 && (!occ.two || d.name2)) ? ["Add the names", ""]
-      : !d.date ? ["Add the date", ""]
+      : !mainEvent(d).date ? ["Add the date", ""]
         : !g.length ? ["Add guests", "/guests"]
           : waiting ? [`${waiting} still to reply · send a reminder`, "/guests"]
             : ["Everyone has replied · see the list", "/guests"];
@@ -58,7 +58,7 @@ function render() {
       <a class="open" href="edit.html#${inv.id}">
         ${thumbHTML(s, "", ini)}
         <h2 class="inv-title">${esc(names)}</h2>
-        <div class="meta"><span>${esc(fmtDate(d.date) || "No date yet")}</span></div>
+        <div class="meta"><span>${esc(fmtDate(mainEvent(d).date) || "No date yet")}</span>${eventsOf(d).length ? `<span>${eventsOf(d).length} events</span>` : ""}</div>
         <div class="meta"><span>${g.length} invited</span><span>${coming} coming</span><span>${replied} of ${g.length} replied</span></div>
         ${g.length ? `<div class="bar" role="img" aria-label="${replied} of ${g.length} replied"><i style="width:${Math.round((replied / g.length) * 100)}%"></i></div>` : ""}
       </a>

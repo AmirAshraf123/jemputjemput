@@ -1,11 +1,18 @@
 // The invitation editor: design, photo, templates and guest list.
 import { sb, requireUser, signOut, $, toast, isConfigured, showSetupNotice } from "./sb.js";
 import { setupFreeDesign } from "./freedesign.js";
+import { setupEvents } from "./edit-events.js";
+import { setupLanguages, fillLangs, renderTr, renderLangSwitch, curLang } from "./edit-languages.js";
+import { setupImport } from "./edit-import.js";
+import { setupCheckin, clock } from "./edit-checkin.js";
+import { setupExport } from "./edit-export.js";
+import { setupPalette } from "./edit-palette.js";
+import { setupGuestEvents, invitedOf } from "./edit-guest-events.js";
 import { FALLS, playFall, bloom } from "./effects.js";
 import {
   esc, clamp, FONTS, PRESETS, presetById, cleanStyle, cleanPhoto, cleanDetails, imgCSS, SHAPE_DEF,
   cardHTML, thumbHTML, FOILS, FILTERS, LANGS, TR_FIELDS, translated, langSwitchHTML, photoUrl, watchPhotos, fmtDate, OCCASIONS, occasionOf, inviteLine, initialsFor, ensureFonts,
-  CORNERS, TEXTURES, SHAPES, SECTIONS, OPENINGS, readabilityIssues, musicUrl, mix, contrast, fixColor, eventTitle, fontCSSUrl, cardFontKeys,
+  CORNERS, TEXTURES, SHAPES, SECTIONS, OPENINGS, eventsOf, mainEvent, eventName, readabilityIssues, musicUrl, mix, contrast, fixColor, eventTitle, fontCSSUrl, cardFontKeys,
 } from "./card.js";
 
 if (!isConfigured) showSetupNotice();
@@ -28,6 +35,8 @@ let filter = "all", groupFilter = "", confirmDel = null, confirmTpl = null, conf
 const canShare = typeof navigator.share === "function";   // the phone's own share sheet (most phones; some desktop browsers)
 let saveTimer = null, dirty = false, photoBusy = false, drag = null;
 let fd = null;             // free design (stickers, pictures and text placed anywhere)
+let evUI = null;           // separate events on the Details step
+let gev = null;            // events on the Guests tab
 
 /* ---------- load (called at the bottom, once everything below is defined) ---------- */
 async function init() {
@@ -49,6 +58,13 @@ async function init() {
     group = data && "group_token" in data ? { token: data.group_token, enabled: !!data.group_enabled, max: data.group_max_seats || 2 } : null;
     setupFontSelects(); setupGroup(); setupOccasion(); setupCustomise();
     fd = setupFreeDesign(fdContext);
+    setupLanguages({ inv, queueSave, renderDesign });
+    setupImport({ inv, guests: () => guests, usesSides, sideText, insertGuests, NEEDS_UPDATE, added: () => { renderSideControls(); renderGuests(); renderReady(); } });
+    setupCheckin({ guests: () => guests, renderGuests });
+    setupExport({ inv, phone });
+    setupPalette({ inv, applied: () => { fillStyle(); renderTemplates(); queueSave(); } });
+    evUI = setupEvents({ inv: () => inv, change: (d) => { inv.details = d; queueSave(); }, refresh: () => { renderSectionList(); gev?.render(); renderGuests(); } });
+    gev = setupGuestEvents({ inv: () => inv, guests: () => guests, renderGuests: () => renderGuests(), saveDetails: (patch) => { inv.details = cleanDetails({ ...inv.details, ...patch }); queueSave(); renderGroup(); } });
     $("pageTitle").textContent = `Edit invitation: ${eventTitle(inv.details)}`;
     fillForm(); renderDesign(); resetHistory(); showTab(hashTab === "guests" ? "guests" : "design");
     let saved = ""; try { saved = localStorage.getItem("jemput.step") || ""; } catch { }
@@ -181,7 +197,7 @@ function fillStyle() {
 }
 function fillForm() {
   for (const el of document.querySelectorAll("#designForm [data-k]")) if (el !== document.activeElement) el.value = inv.details[el.dataset.k] ?? "";
-  fillOccasion(); fillStyle(); renderTemplates(); fillPhoto(); fillCustomise();
+  fillOccasion(); fillStyle(); renderTemplates(); fillPhoto(); fillCustomise(); evUI?.fill();
 }
 
 /* ---------- extra lines, second language, layout, opening and music ---------- */
@@ -251,7 +267,9 @@ const fontOptions = (same) => (same ? `<option value="">Same as text font</optio
 function renderSectionList() {
   const { order, hidden } = inv.details;
   $("secList").innerHTML = order.map((k) => {
-    const ui = PART_UI[k], name = esc(SECTIONS[k]), open = openParts.has(k);
+    const multi = eventsOf(inv.details).length > 0;
+    const ui = PART_UI[k], open = openParts.has(k);
+    const name = esc(multi && k === "when" ? "Events" : multi && k === "where" ? "Venues (shown with each event)" : SECTIONS[k]);
     const panel = `<div class="part-opts" id="opts-${k}"${open ? "" : " hidden"}>
         ${ui.font ? `<label class="f">Font<select data-s="${ui.font}">${fontOptions(!ui.noSame)}</select></label>` : ""}
         ${ui.more ? ui.more() : ""}
@@ -367,120 +385,7 @@ $("secList").addEventListener("keydown", (e) => {
 });
 function announce(msg) { $("secLive").textContent = msg; }
 
-/* ---------- second language: guests switch between two languages on the card ---------- */
-let pvLang = "";   // which language the preview shows ("" = the main one)
-let trMoreOpen = false;   // whether "Names and places" is unfolded
-const curLang = () => (pvLang && pvLang === inv.details.lang2 ? pvLang : inv.details.lang1);
-function fillLangs() {
-  const d = inv.details;
-  $("lang1").value = d.lang1;
-  $("lang2").innerHTML = `<option value="">None</option>` + Object.entries(LANGS).filter(([k]) => k !== d.lang1).map(([k, v]) => `<option value="${k}">${esc(v.name === v.label ? v.label : `${v.name} (${v.label})`)}</option>`).join("");
-  $("lang2").value = d.lang2;
-  $("trBox").hidden = !d.lang2;
-  if (pvLang && pvLang !== d.lang2) pvLang = "";
-  renderLangSwitch(); renderTr();
-}
-function renderLangSwitch() { $("pvLang").innerHTML = langSwitchHTML(inv.details, curLang()); }
-$("pvLang").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-lang]"); if (!b) return;
-  pvLang = b.dataset.lang === inv.details.lang1 ? "" : b.dataset.lang;
-  renderLangSwitch(); renderDesign(); $("pvLang").querySelector(`[data-lang="${b.dataset.lang}"]`)?.focus();
-});
-// The parts of this card that can be translated, with their current wording.
-function trItems() {
-  const d = inv.details, occ = occasionOf(d), items = [];
-  for (const f of TR_FIELDS) {
-    const src = d[f.k]; if (!src?.trim()) continue;
-    let { label, auto, optional } = f;
-    if (f.k === "name1") label = occ.two ? "First name" : occ.l1;
-    if (f.k === "name2") { if (occ.two) label = "Second name"; else { label = occ.l2.replace(/ \(optional\)$/, ""); auto = true; optional = false; } }
-    items.push({ id: f.k, label, auto, optional, area: f.area, src, saved: d.tr[f.k] });
-  }
-  d.extras.forEach((x, i) => { if (x.text.trim()) items.push({ id: "x" + i, label: `Extra line ${i + 1}`, auto: true, src: x.text, saved: x.tr }); });
-  return items;
-}
-const HOW = { "built-in": "Built-in translation", auto: "Machine translation, please check it", you: "Your wording", stale: "You changed the original since this was translated", none: "" };
-function renderTr() {
-  const d = inv.details; if (!d.lang2) { $("trList").innerHTML = ""; return; }
-  if ($("trList").contains(document.activeElement) && document.activeElement.dataset.tr) return;   // don't redraw under the cursor
-  const L2 = LANGS[d.lang2], items = trItems();
-  $("trIntro").textContent = `Standard wording is already in ${L2.name}. Check each line.`;
-  const row = (it) => {
-    const r = translated(it.src, it.saved, d), val = r.how === "none" ? "" : r.text;
-    const ph = it.optional ? `Leave empty to keep "${it.src}"` : `${L2.name} for this line`;
-    const field = it.area
-      ? `<textarea id="tr-${it.id}" data-tr="${it.id}" lang="${d.lang2}" maxlength="400" rows="3" placeholder="${esc(ph)}">${esc(val)}</textarea>`
-      : `<input id="tr-${it.id}" data-tr="${it.id}" lang="${d.lang2}" maxlength="${it.id[0] === "x" ? 160 : 400}" placeholder="${esc(ph)}" value="${esc(val)}">`;
-    const status = r.how === "none" ? (it.optional ? "" : "Not translated yet, so guests will see the original") : HOW[r.how];
-    const btn = it.auto && r.how !== "built-in" ? `<button type="button" class="btn sm ghost" data-trgo="${it.id}" aria-describedby="tr-${it.id}">${r.how === "stale" ? "Translate again" : "Translate"}</button>` : "";
-    return `<div class="tr-row${r.how === "stale" || (r.how === "none" && !it.optional) ? " needs" : ""}">
-      <label for="tr-${it.id}"><span class="tr-label">${esc(it.label)}</span> <span class="tr-src">${esc(it.src)}</span></label>
-      ${field}
-      ${status || btn ? `<div class="tr-meta"><span class="tr-status" id="trs-${it.id}">${esc(status)}</span>${btn}</div>` : ""}
-    </div>`;
-  };
-  const main = items.filter((it) => !it.optional), extra = items.filter((it) => it.optional);
-  const moreOpen = trMoreOpen || extra.some((it) => it.saved?.t);
-  $("trList").innerHTML = (main.map(row).join("") || `<p class="hint">Fill in the card first, then its lines appear here.</p>`)
-    + (extra.length ? `<details class="tr-more" id="trMore"${moreOpen ? " open" : ""}><summary>Names and places in ${esc(L2.name)} (optional)</summary>
-        <p class="hint">Names and places usually stay as they are. Fill these in only if you want them written differently, for example in Chinese characters.</p>${extra.map(row).join("")}</details>` : "");
-}
-// Save one translation (or clear it when empty, so the built-in or original shows again).
-function setTr(id, text, by) {
-  const it = trItems().find((x) => x.id === id); if (!it) return;
-  const val = text.trim() ? { t: text, src: it.src, by } : undefined;
-  if (id[0] === "x") {
-    const extras = inv.details.extras.map((x, i) => (i === +id.slice(1) ? { ...x, tr: val } : x));
-    inv.details = cleanDetails({ ...inv.details, extras });
-  } else {
-    const tr = { ...inv.details.tr }; if (val) tr[id] = val; else delete tr[id];
-    inv.details = cleanDetails({ ...inv.details, tr });
-  }
-  if (!pvLang) { pvLang = inv.details.lang2; renderLangSwitch(); }   // show the translated card while translating
-  queueSave();
-}
-$("trList").addEventListener("toggle", (e) => { if (e.target.id === "trMore") trMoreOpen = e.target.open; }, true);
-$("trList").addEventListener("input", (e) => { const id = e.target.dataset.tr; if (id) setTr(id, e.target.value, "you"); });
-$("trList").addEventListener("focusout", () => setTimeout(() => { if (!$("trList").contains(document.activeElement)) renderTr(); }, 0));
-// Machine translation through MyMemory (free, no account). Text is sent to their server only when the host presses Translate.
-async function machineTranslate(text) {
-  const d = inv.details;
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${LANGS[d.lang1].mm}|${LANGS[d.lang2].mm}`;
-  const res = await fetch(url);
-  const j = await res.json().catch(() => ({}));
-  const out = j?.responseData?.translatedText || "";
-  if (+j?.responseStatus === 429 || /MYMEMORY WARNING|USED ALL AVAILABLE/i.test(out)) throw new Error("quota");
-  if (!res.ok || +j?.responseStatus !== 200 || !out || /^(QUERY LENGTH|INVALID)/i.test(out)) throw new Error("failed");
-  const tx = document.createElement("textarea"); tx.innerHTML = out; return tx.value;   // it returns some characters as HTML codes
-}
-const trError = (err) => toast(err.message === "quota"
-  ? "The free translator has reached its limit for today. Try again tomorrow, or type the translation yourself."
-  : "Couldn't reach the translator. Check your connection and try again, or type the translation yourself.");
-async function translateOne(id) {
-  const it = trItems().find((x) => x.id === id); if (!it) return false;
-  $("trs-" + id) && ($("trs-" + id).textContent = "Translating…");
-  const t = await machineTranslate(it.src);
-  setTr(id, t, "auto");
-  return true;
-}
-$("trList").addEventListener("click", async (e) => {
-  const b = e.target.closest("[data-trgo]"); if (!b) return;
-  b.disabled = true;
-  try { await translateOne(b.dataset.trgo); renderTr(); $(`tr-${b.dataset.trgo}`)?.focus(); }
-  catch (err) { trError(err); renderTr(); }
-});
-$("trAll").addEventListener("click", async (e) => {
-  const btn = e.currentTarget, d = inv.details;
-  // only lines that aren't already translated for their current wording and have no built-in version
-  const todo = trItems().filter((it) => it.auto && ["none", "stale"].includes(translated(it.src, it.saved, d).how));
-  if (!todo.length) { toast(`Everything is already in ${LANGS[d.lang2].name}.`); return; }
-  btn.disabled = true; let done = 0;
-  try {
-    for (const it of todo) { btn.textContent = `Translating ${done + 1} of ${todo.length}…`; await translateOne(it.id); done++; }
-    toast(`Translated ${done} line${done === 1 ? "" : "s"}. Have a read to check they sound right.`);
-  } catch (err) { trError(err); }
-  finally { btn.disabled = false; btn.textContent = "Translate everything"; renderTr(); }
-});
+/* ---------- second language: see edit-languages.js ---------- */
 
 /* Readability check: flags text colours that are hard to read on the card, with one-tap fixes. */
 function renderReadability() {
@@ -626,112 +531,6 @@ function closeFull() {
   $("pvFullCard").innerHTML = "";
   pvReturnFocus?.focus?.();
 }
-/* Save the card as a picture: 1080px wide, ready for Instagram, Status or printing.
-   On phones that can share files, it opens the share sheet (Save Image, Instagram, WhatsApp…); otherwise it downloads. */
-const IMAGE_LIB = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm";
-// The picture is drawn without the page's stylesheets, so the card's fonts are embedded directly.
-// Only font files covering characters on the card are fetched (Chinese fonts are split into many files).
-async function embeddedFontCSS(text) {
-  const url = fontCSSUrl(cardFontKeys(inv)); if (!url) return "";
-  const css = await (await fetch(url)).text();
-  const used = new Set([...text].map((ch) => ch.codePointAt(0)));
-  const covers = (range) => range.split(",").some((r) => {
-    const [a, b] = r.trim().replace(/^U\+/i, "").split("-").map((h) => parseInt(h.replace(/\?/g, "0"), 16));
-    const hi = b ?? (r.includes("?") ? parseInt(r.trim().replace(/^U\+/i, "").replace(/\?/g, "F"), 16) : a);
-    for (const cp of used) if (cp >= a && cp <= hi) return true;
-    return false;
-  });
-  const blocks = css.match(/@font-face\s*{[^}]*}/g) || [];
-  const keep = blocks.filter((blk) => { const m = blk.match(/unicode-range:\s*([^;]+);/); return !m || covers(m[1]); });
-  const toData = async (u) => { const blob = await (await fetch(u)).blob(); return await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(blob); }); };
-  const out = [];
-  for (const blk of keep) {
-    const m = blk.match(/url\(([^)]+)\)/); if (!m) continue;
-    out.push(blk.replace(m[0], `url(${await toData(m[1].replace(/["']/g, ""))})`));
-  }
-  return out.join("\n");
-}
-// Draws the card off-screen at a given width in pixels, with its fonts and pictures, and returns a canvas.
-async function renderCardCanvas(widthPx) {
-  const host = document.createElement("div");
-  host.className = "export-host";
-  try {
-    const { toCanvas } = await import(IMAGE_LIB);
-    host.innerHTML = cardHTML(inv, null, curLang());
-    document.body.append(host);
-    await document.fonts.ready;
-    await Promise.all([...host.querySelectorAll("img")].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
-    const node = host.firstElementChild;
-    const fontEmbedCSS = await embeddedFontCSS(host.textContent + "&");
-    return await toCanvas(node, { pixelRatio: widthPx / node.offsetWidth, cacheBust: true, fontEmbedCSS });
-  } finally { host.remove(); }
-}
-const fileBase = () => eventTitle(inv.details).replace(/[^\w\s-]+/g, "").trim().replace(/\s+/g, "-") || "invitation";
-async function deliver(blob, name, type, savedMsg) {
-  const file = new File([blob], name, { type });
-  if (phone.matches && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: eventTitle(inv.details) }).catch(() => { });
-  } else {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    toast(savedMsg);
-  }
-}
-async function saveImage(btn) {
-  const label = btn.textContent;
-  btn.disabled = true; btn.textContent = "Preparing…";
-  try {
-    const canvas = await renderCardCanvas(1080);
-    const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
-    if (!blob) throw new Error("empty image");
-    await deliver(blob, fileBase() + ".png", "image/png", "Image saved to your downloads");
-  } catch (err) {
-    console.error(err);
-    toast("Couldn't create the image. Check your connection and try again, or take a screenshot of the full-size preview.");
-  } finally { btn.disabled = false; btn.textContent = label; }
-}
-
-/* Print-ready PDF: the card 127 mm (5 inches) wide at 300 dpi, with 3 mm bleed on every side (the edge colours
-   carried outwards, so nothing white shows if the cut is slightly off) and crop marks showing where to cut. */
-const PDF_LIB = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm";
-const TRIM_W = 127, BLEED = 3, SLUG = 8;
-async function savePDF(btn) {
-  const label = btn.textContent;
-  btn.disabled = true; btn.textContent = "Preparing…";
-  try {
-    const card = await renderCardCanvas(1500);   // 1500 px across 127 mm ≈ 300 dpi
-    const W = card.width, H = card.height, pxPerMm = W / TRIM_W, b = Math.round(BLEED * pxPerMm);
-    const c = document.createElement("canvas"); c.width = W + 2 * b; c.height = H + 2 * b;
-    const g = c.getContext("2d");
-    g.fillStyle = inv.style.frame === "none" ? inv.style.bg : inv.style.frameA; g.fillRect(0, 0, c.width, c.height);
-    g.drawImage(card, b, b);
-    // stretch the outermost row and column of pixels into the bleed
-    g.drawImage(card, 0, 0, 1, H, 0, b, b, H); g.drawImage(card, W - 1, 0, 1, H, W + b, b, b, H);
-    g.drawImage(card, 0, 0, W, 1, b, 0, W, b); g.drawImage(card, 0, H - 1, W, 1, b, H + b, W, b);
-    for (const [sx, sy, dx, dy] of [[0, 0, 0, 0], [W - 1, 0, W + b, 0], [0, H - 1, 0, H + b], [W - 1, H - 1, W + b, H + b]]) g.drawImage(card, sx, sy, 1, 1, dx, dy, b, b);
-    const trimH = H / pxPerMm, pw = TRIM_W + 2 * (BLEED + SLUG), ph = trimH + 2 * (BLEED + SLUG);
-    const { jsPDF } = await import(PDF_LIB);
-    const pdf = new jsPDF({ unit: "mm", format: [pw, ph], orientation: pw > ph ? "landscape" : "portrait", compress: true });
-    pdf.addImage(c.toDataURL("image/jpeg", 0.95), "JPEG", SLUG, SLUG, TRIM_W + 2 * BLEED, trimH + 2 * BLEED);
-    // crop marks: short lines in the margin, in line with the trim edges, stopping before the bleed
-    pdf.setLineWidth(0.25); pdf.setDrawColor(0);
-    const x0 = SLUG + BLEED, x1 = x0 + TRIM_W, y0 = SLUG + BLEED, y1 = y0 + trimH, gap = BLEED + 1, len = SLUG - 2;
-    for (const x of [x0, x1]) { pdf.line(x, y0 - gap - len, x, y0 - gap); pdf.line(x, y1 + gap, x, y1 + gap + len); }
-    for (const y of [y0, y1]) { pdf.line(x0 - gap - len, y, x0 - gap, y); pdf.line(x1 + gap, y, x1 + gap + len, y); }
-    pdf.setFontSize(6); pdf.setTextColor(90);
-    pdf.text(`${eventTitle(inv.details)} · trim ${TRIM_W} × ${trimH.toFixed(1)} mm · ${BLEED} mm bleed · made with Jemput`, pw / 2, ph - 2.5, { align: "center" });
-    pdf.setProperties({ title: eventTitle(inv.details), creator: "Jemput" });
-    await deliver(pdf.output("blob"), fileBase() + "-print.pdf", "application/pdf", "Print PDF saved to your downloads");
-  } catch (err) {
-    console.error(err);
-    toast("Couldn't create the PDF. Check your connection and try again.");
-  } finally { btn.disabled = false; btn.textContent = label; }
-}
-$("pvDownload").addEventListener("click", (e) => saveImage(e.currentTarget));
-$("pvFullDownload").addEventListener("click", (e) => saveImage(e.currentTarget));
-$("pvPdf").addEventListener("click", (e) => savePDF(e.currentTarget));
-$("pvFullPdf").addEventListener("click", (e) => savePDF(e.currentTarget));
 $("pvFull").addEventListener("click", openFull);
 $("pvClose").addEventListener("click", closeFull);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("pvFullView").hidden) closeFull(); });
@@ -986,7 +785,7 @@ $("designCard").addEventListener("pointercancel", endDrag);
 const groupLink = () => new URL("invite.html", location.href).href + "#g/" + group.token;
 function groupText() {
   const d = inv.details;
-  const when = fmtDate(d.date), by = fmtDate(d.rsvpBy);
+  const when = fmtDate(mainEvent(d).date), by = fmtDate(d.rsvpBy);
   return `${inviteLine(d)}${when ? " on " + when : ""}! Tap the link to see the invitation and reply${by ? " by " + by : ""}. One reply per household, please: ${groupLink()}`;
 }
 function setupGroup() {
@@ -1038,14 +837,14 @@ $("grpNew").addEventListener("click", async () => {
 const guestLink = (g) => new URL("invite.html", location.href).href + "#" + g.token;
 function waNumber(p) { let d = String(p || "").replace(/\D/g, ""); if (d.length === 8) d = "65" + d; return d; }
 function inviteText(g) {
-  const d = inv.details;
-  const when = fmtDate(d.date), by = fmtDate(d.rsvpBy);
+  const d = inv.details, mine = invitedOf(d, g).filter((e) => e.date).sort((a, b) => a.date.localeCompare(b.date));
+  const when = fmtDate(mine[0]?.date || mainEvent(d).date), by = fmtDate(d.rsvpBy);
   return `Hi ${g.name}! ${inviteLine(d)}${when ? " on " + when : ""}. Here's your invitation${by ? ", please reply by " + by : ""}: ${guestLink(g)}`;
 }
 async function loadGuests() {
   const { data, error } = await sb.from("guests").select("*").eq("invitation_id", inv.id).order("created_at");
   if (error) { toast("Couldn't load guests: " + error.message); return; }
-  guests = data; renderSideControls(); renderGuests(); renderReady();
+  guests = data; renderSideControls(); gev?.render(); renderGuests(); renderReady();
 }
 function subscribeGuests() {
   sb.channel("guests-" + inv.id)
@@ -1067,7 +866,7 @@ function renderStats() {
   ].map(([c, n, l]) => `<div class="stat ${c}"><b>${n}</b><span>${l}</span></div>`).join("");
 }
 function renderGuests() {
-  renderStats();
+  renderStats(); gev?.renderStats();
   const dups = guests.filter((g) => g.dup_reason);
   $("dupChip").hidden = !dups.length;
   $("dupChip").textContent = `Possible duplicates (${dups.length})`;
@@ -1078,7 +877,7 @@ function renderGuests() {
   $("groupFilterLabel").textContent = usesSides() ? "Show side" : "Show group";
   $("groupFilter").innerHTML = `<option value="">${usesSides() ? "All sides" : "All groups"}</option>` +
     groups.map((x) => `<option value="${esc(x)}" ${x === groupFilter ? "selected" : ""}>${esc(sideText(x))}</option>`).join("");
-  const list = guests.filter((g) => (filter === "all" || (filter === "dup" ? g.dup_reason : g.status === filter)) && (!groupFilter || g.side === groupFilter));
+  const list = guests.filter((g) => (filter === "all" || (filter === "dup" ? g.dup_reason : g.status === filter)) && (!groupFilter || g.side === groupFilter) && (!gev || gev.keep(g)));
   for (const c of $("filters").querySelectorAll(".chip")) c.setAttribute("aria-pressed", String(c.dataset.f === filter));
   if (!list.length) {
     $("gBody").innerHTML = `<tr><td colspan="6" class="empty">${guests.length ? "No guests match this filter." : "No guests yet. Add the first household above."}</td></tr>`;
@@ -1092,7 +891,7 @@ function renderGuests() {
         ${g.dup_reason ? `<div class="dup"><span>Possible duplicate: ${esc(g.dup_reason)}</span> <button class="linkbtn" data-act="notdup" data-id="${g.id}">Not a duplicate</button></div>` : ""}</td>
       <td class="g-side${g.side ? "" : " is-empty"}" data-label="${usesSides() ? "Side" : "Group"}">${esc(sideText(g.side)) || "—"}</td>
       <td class="num g-seats" data-label="Seats">${g.status === "yes" ? `${g.coming} of ${g.seats}` : g.seats}</td>
-      <td class="g-reply"><span class="pill ${esc(g.status)}">${label[g.status] || "Waiting"}</span>${g.checked_in_at ? `<div class="arrived">Arrived ${esc(clock(g.checked_in_at))}</div>` : ""}</td>
+      <td class="g-reply">${gev && eventsOf(inv.details).length ? gev.rowHTML(g) : `<span class="pill ${esc(g.status)}">${label[g.status] || "Waiting"}</span>`}${g.checked_in_at ? `<div class="arrived">Arrived ${esc(clock(g.checked_in_at))}</div>` : ""}</td>
       <td class="g-notes">${g.dietary ? `<div>${esc(g.dietary)}</div>` : ""}${g.note ? `<div class="sub">“${esc(g.note)}”</div>` : ""}</td>
       <td class="g-acts"><div class="acts">
         ${wa ? `<a class="btn sm" href="https://wa.me/${wa}?text=${encodeURIComponent(inviteText(g))}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
@@ -1113,6 +912,7 @@ $("filters").addEventListener("click", (e) => {
 $("gBody").addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-act]"); if (!b) return;
   const g = guests.find((x) => x.id === b.dataset.id); if (!g) return;
+  if (gev?.onRowClick(b.dataset.act, g)) return;
   if (b.dataset.act === "share") {
     navigator.share({ text: inviteText(g) }).catch(() => { });   // closing the share sheet isn't an error worth showing
   } else if (b.dataset.act === "copy") {
@@ -1159,6 +959,8 @@ $("addForm").addEventListener("submit", async (e) => {
     seats: Math.round(clamp($("gSeats").value, 1, 50, 2)), side: chosenSide(),
   };
   if (!row.name) return;
+  const evIds = gev?.chosen();
+  if (evIds && gev.ready()) row.events = evIds;
   const { data: added, error, withoutGroup } = await insertGuests([row]);
   if (error) { toast("Couldn't add guest: " + error.message); return; }
   const data = added[0];
@@ -1169,11 +971,11 @@ $("addForm").addEventListener("submit", async (e) => {
   addedToast([row.name], withoutGroup);
 });
 $("csv").addEventListener("click", () => {
-  const head = ["Name", "Phone", usesSides() ? "Side" : "Group", "Seats", "Reply", "Coming", "Dietary", "Note", "Replied at", "Added by", "Possible duplicate", "Invitation link", "Arrived"];
+  const head = ["Name", "Phone", usesSides() ? "Side" : "Group", "Seats", "Reply", "Coming", "Dietary", "Note", "Replied at", "Added by", "Possible duplicate", "Invitation link", "Arrived", ...(gev?.csvHead() || [])];
   const label = { yes: "Coming", no: "Can't make it", pending: "Waiting" };
   const rows = guests.map((g) => [g.name, g.phone, sideText(g.side), g.seats, label[g.status], g.coming, g.dietary, g.note,
   g.responded_at ? new Date(g.responded_at).toLocaleString("en-SG") : "", g.source === "group" ? "Group link" : "You",
-  g.dup_reason || "", guestLink(g), g.checked_in_at ? new Date(g.checked_in_at).toLocaleString("en-SG") : ""]);
+  g.dup_reason || "", guestLink(g), g.checked_in_at ? new Date(g.checked_in_at).toLocaleString("en-SG") : "", ...(gev?.csvCells(g) || [])]);
   const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
@@ -1260,63 +1062,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 
-/* ---------- colours from the photo ---------- */
-// Finds the photo's main colours (a small k-means on a thumbnail), then builds three readable colour sets from them.
-const hexOfRgb = (c) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
-function satOf(hex) { const n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b); return mx === 0 ? 0 : (mx - mn) / mx; }
-const lumOf = (hex) => contrast(hex, "#000000");   // higher = lighter
-async function photoColours(src) {
-  const img = new Image(); img.crossOrigin = "anonymous";
-  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
-  const c = document.createElement("canvas"); c.width = c.height = 48;
-  const g = c.getContext("2d"); g.drawImage(img, 0, 0, 48, 48);
-  const px = [], d = g.getImageData(0, 0, 48, 48).data;
-  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128) px.push([d[i], d[i + 1], d[i + 2]]);
-  px.sort((a, b) => a[0] + a[1] + a[2] - (b[0] + b[1] + b[2]));
-  let cents = Array.from({ length: 6 }, (_, k) => px[Math.floor(((k + 0.5) / 6) * px.length)]);
-  let groups = [];
-  for (let it = 0; it < 10; it++) {
-    groups = cents.map(() => []);
-    for (const p of px) { let bi = 0, bd = Infinity; cents.forEach((q, i) => { const dd = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2; if (dd < bd) { bd = dd; bi = i; } }); groups[bi].push(p); }
-    cents = groups.map((gr, i) => (gr.length ? [0, 1, 2].map((j) => gr.reduce((a, p) => a + p[j], 0) / gr.length) : cents[i]));
-  }
-  return cents.map((q, i) => ({ hex: hexOfRgb(q), n: groups[i].length })).filter((x) => x.n).sort((a, b) => b.n - a.n);
-}
-function palettesFrom(cols) {
-  const byLum = [...cols].sort((a, b) => lumOf(a.hex) - lumOf(b.hex));
-  const dark = byLum[0].hex, light = byLum[byLum.length - 1].hex;
-  const vivids = [...cols].sort((a, b) => satOf(b.hex) * Math.sqrt(b.n) - satOf(a.hex) * Math.sqrt(a.n));
-  const v1 = vivids[0].hex, v2 = (vivids[1] || vivids[0]).hex;
-  const make = (name, bg, inkFrom, accFrom, frameA, frameB) => {
-    const ink = fixColor(inkFrom, bg, 4.5), accent = fixColor(accFrom, bg, 3);
-    return { name, style: { bg, ink, headColor: ink, accent, frameA: frameA || accent, frameB: frameB || bg, bg2: mix(bg, accent, 0.18) } };
-  };
-  return [
-    make("Light", mix(light, "#ffffff", 0.65), dark, v1),
-    make("Dark", mix(dark, "#000000", 0.25), mix(light, "#ffffff", 0.5), v1 === dark ? light : v1),
-    make("Rich", mix(v1, "#000000", 0.45), mix(light, "#ffffff", 0.7), v2 === v1 ? light : v2, null, mix(v1, "#000000", 0.6)),
-  ];
-}
-let palettes = [];
-$("palGo").addEventListener("click", async (e) => {
-  const b = e.currentTarget; b.disabled = true; b.textContent = "Looking at your photo…";
-  try {
-    palettes = palettesFrom(await photoColours(photoUrl(inv.photo)));
-    $("palList").innerHTML = palettes.map((p, i) => `<button type="button" class="pal-opt" data-pal="${i}">
-        <span class="pal-sw" aria-hidden="true">${[p.style.bg, p.style.ink, p.style.accent, p.style.frameA, p.style.frameB].map((c) => `<i style="background:${c}"></i>`).join("")}</span>
-        <span>${esc(p.name)}</span></button>`).join("");
-    $("palList").querySelector("button")?.focus();
-  } catch { toast("Couldn't read the photo's colours. Try again in a moment."); }
-  finally { b.disabled = false; b.textContent = "Pick colours from my photo"; }
-});
-$("palList").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-pal]"); if (!b) return;
-  const p = palettes[+b.dataset.pal];
-  inv.style = cleanStyle({ ...inv.style, ...p.style }, inv.style);
-  fillStyle(); renderTemplates(); queueSave();
-  toast(`${p.name} colours from your photo applied. Undo puts the old ones back.`);
-});
-
+/* ---------- colours from the photo: see edit-palette.js ---------- */
 
 /* ---------- movement preview ---------- */
 const fxColours = () => { const st = inv.style; return [st.accent, st.frameA, st.frameB, st.ink].filter((c, i, a) => a.indexOf(c) === i); };
@@ -1335,8 +1081,13 @@ function renderReady() {
   const d = inv.details, occ = occasionOf(d);
   const items = [
     { ok: !!(d.name1.trim() && (!occ.two || d.name2.trim())), label: occ.two ? "Names" : "Name", go: "name1" },
-    { ok: !!d.date, label: "Date", go: "date" },
-    { ok: !!d.venue.trim(), label: "Venue", go: "venue" },
+    ...(eventsOf(d).length ? [
+      { ok: eventsOf(d).every((e) => e.date && e.name.trim()), label: "Event names and dates", go: "evName0" },
+      { ok: eventsOf(d).every((e) => e.venue.trim()), label: "Venues", go: "evName0" },
+    ] : [
+      { ok: !!d.date, label: "Date", go: "date" },
+      { ok: !!d.venue.trim(), label: "Venue", go: "venue" },
+    ]),
     { ok: guests.length > 0, label: guests.length ? `${guests.length} ${guests.length === 1 ? "guest" : "guests"}` : "Guests", go: "guests" },
   ];
   const done = items.every((x) => x.ok);
@@ -1406,184 +1157,4 @@ $("sTpls").addEventListener("keydown", (e) => {
 });
 
 
-/* ---------- import guests from a spreadsheet (CSV file, or rows pasted from Excel / Google Sheets) ---------- */
-// Splits CSV or tab-separated text into rows of cells, handling "quoted, values" and doubled quotes.
-function parseTable(text) {
-  text = text.replace(/^\uFEFF/, "");
-  const first = text.split(/\r?\n/).find((l) => l.trim()) || "";
-  const sep = first.includes("\t") ? "\t" : (first.split(";").length > first.split(",").length ? ";" : ",");
-  const rows = []; let row = [], cell = "", q = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
-    else if (ch === '"' && !cell) q = true;
-    else if (ch === sep) { row.push(cell); cell = ""; }
-    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
-    else cell += ch;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  return rows.map((r) => r.map((c) => c.trim())).filter((r) => r.some(Boolean));
-}
-const normPhone = (p) => { let d = String(p || "").replace(/\D/g, ""); if (d.length === 8) d = "65" + d; return d; };
-const normName = (n) => String(n || "").toLowerCase().replace(/\s+/g, "");
-// Which column is which: from a heading row if there is one (English or Malay), otherwise Name, Phone, Seats, Side.
-function columnsOf(rows) {
-  const h = rows[0].map((c) => c.toLowerCase());
-  const find = (re) => h.findIndex((c) => re.test(c));
-  const cols = { name: find(/^(name|nama|guest|tetamu|household)/), phone: find(/phone|whatsapp|number|telefon|no\.? ?tel|mobile|hp/), seats: find(/seat|pax|tempat|bilangan|people|orang/), side: find(/side|group|pihak|kumpulan/) };
-  if (cols.name >= 0) return { cols, start: 1 };
-  return { cols: { name: 0, phone: 1, seats: 2, side: 3 }, start: 0 };
-}
-function sideFrom(v) {
-  if (!usesSides()) return String(v || "").slice(0, 40);
-  const t = String(v || "").toLowerCase();
-  if (/groom|lelaki|\bl\b|husband|male/.test(t)) return "Groom";
-  if (/bride|perempuan|\bp\b|wife|female/.test(t)) return "Bride";
-  return "Both";
-}
-let importRows = [];
-function readImport() {
-  const rows = parseTable($("impText").value);
-  importRows = [];
-  if (!rows.length) { $("impPreview").innerHTML = ""; $("impGo").disabled = true; $("impDupWrap").hidden = true; return; }
-  const { cols, start } = columnsOf(rows);
-  const phones = new Set(guests.map((g) => normPhone(g.phone)).filter((p) => p.length >= 8)), names = new Set(guests.map((g) => normName(g.name)));
-  let noName = 0;
-  for (const r of rows.slice(start)) {
-    const name = (r[cols.name] || "").slice(0, 120);
-    if (!name) { noName++; continue; }
-    const phone = cols.phone >= 0 ? (r[cols.phone] || "").slice(0, 40) : "";
-    const seats = Math.round(clamp(parseInt(cols.seats >= 0 ? r[cols.seats] : "", 10) || 2, 1, 50, 2));
-    const p = normPhone(phone), n = normName(name);
-    const dup = (p.length >= 8 && phones.has(p)) ? "same number as someone on your list" : names.has(n) ? "same name as someone on your list" : "";
-    importRows.push({ name, phone, seats, side: sideFrom(cols.side >= 0 ? r[cols.side] : ""), dup });
-    if (p.length >= 8) phones.add(p); names.add(n);   // catches repeats inside the file too
-  }
-  const dups = importRows.filter((x) => x.dup).length, fresh = importRows.length - dups;
-  const show = importRows.slice(0, 6);
-  $("impPreview").innerHTML = `<p><b>${fresh} ${fresh === 1 ? "household" : "households"} ready to add</b>${dups ? ` · ${dups} possible ${dups === 1 ? "duplicate" : "duplicates"}` : ""}${noName ? ` · ${noName} ${noName === 1 ? "row" : "rows"} without a name skipped` : ""}</p>`
-    + (show.length ? `<div class="tablewrap"><table><thead><tr><th>Name</th><th>Number</th><th>Seats</th><th>${usesSides() ? "Side" : "Group"}</th></tr></thead><tbody>${show.map((x) => `<tr${x.dup ? ' class="dup"' : ""}><td>${esc(x.name)}${x.dup ? `<div class="sub">Possible duplicate: ${esc(x.dup)}</div>` : ""}</td><td>${esc(x.phone)}</td><td>${x.seats}</td><td>${esc(sideText(x.side))}</td></tr>`).join("")}</tbody></table></div>${importRows.length > 6 ? `<p class="hint">…and ${importRows.length - 6} more</p>` : ""}` : "");
-  $("impDupWrap").hidden = !dups;
-  $("impGo").disabled = !(fresh || ($("impDups").checked && dups));
-  const n = fresh + ($("impDups").checked ? dups : 0);
-  $("impGo").textContent = n ? `Add ${n} ${n === 1 ? "guest" : "guests"}` : "Add guests";
-}
-$("importBtn").addEventListener("click", () => {
-  $("impSideWord").textContent = usesSides() ? "Side (Groom, Bride or Both)" : "Group";
-  $("impText").value = ""; readImport(); $("importDlg").showModal(); $("impText").focus();
-});
-$("impCancel").addEventListener("click", () => $("importDlg").close());
-$("impText").addEventListener("input", readImport);
-$("impDups").addEventListener("change", readImport);
-$("impFile").addEventListener("change", async (e) => {
-  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
-  if (f.size > 2e6) { toast("That file is over 2 MB. Please split it into smaller files."); return; }
-  if (/\.xlsx?$/i.test(f.name)) { toast("Please save the spreadsheet as CSV first (File → Download or Save As → CSV), or copy the rows and paste them in."); return; }
-  $("impText").value = await f.text(); readImport();
-});
-$("impTemplate").addEventListener("click", (e) => {
-  e.preventDefault();
-  const sample = usesSides()
-    ? "Name,WhatsApp number,Seats,Side\r\nAuntie Rosnah & family,9123 4567,4,Bride\r\nUncle Lim,9876 5432,2,Groom\r\n"
-    : "Name,WhatsApp number,Seats,Group\r\nAuntie Rosnah & family,9123 4567,4,Family\r\nDaniel Tan,9876 5432,1,Work\r\n";
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob(["\uFEFF" + sample], { type: "text/csv" })); a.download = "jemput-guest-list-sample.csv"; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-});
-$("impForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const rows = importRows.filter((x) => !x.dup || $("impDups").checked)
-    .map(({ name, phone, seats, side }) => ({ invitation_id: inv.id, name, phone, seats, side }));
-  if (!rows.length) return;
-  $("impGo").disabled = true; $("impGo").textContent = "Adding…";
-  let added = 0, withoutGroup = false;
-  for (let i = 0; i < rows.length; i += 100) {
-    const res = await insertGuests(rows.slice(i, i + 100));
-    if (res.error) { toast(`Couldn't add all of them (${added} added): ` + res.error.message); break; }
-    for (const g of res.data) if (!guests.some((x) => x.id === g.id)) guests.push(g);
-    added += res.data.length; withoutGroup ||= res.withoutGroup;
-  }
-  renderSideControls(); renderGuests(); renderReady();
-  $("importDlg").close();
-  if (added) toast(`Added ${added} ${added === 1 ? "guest" : "guests"}. Send each one their link from the list below.` + (withoutGroup ? NEEDS_UPDATE : ""));
-});
-
-
-/* ---------- check-in on the day: scan entry passes, or find guests by name ---------- */
-const JSQR_LIB = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/+esm";
-const clock = (t) => new Date(t).toLocaleTimeString("en-SG", { hour: "numeric", minute: "2-digit" });
-let camStream = null, scanTimer = null, scanPause = 0;
-function renderCheckin() {
-  const coming = guests.filter((g) => g.status === "yes"), here = guests.filter((g) => g.checked_in_at);
-  const people = here.reduce((a, g) => a + (g.status === "yes" ? g.coming : g.seats || 1), 0), expected = coming.reduce((a, g) => a + g.coming, 0);
-  $("ckCount").innerHTML = `<b>${here.length}</b> of ${coming.length} households here · <b>${people}</b> of ${expected} people`;
-  const q = $("ckSearch").value.trim().toLowerCase();
-  const list = q ? guests.filter((g) => g.name.toLowerCase().includes(q)).slice(0, 8) : [];
-  $("ckList").innerHTML = list.map((g) => `<li><div><b>${esc(g.name)}</b><div class="sub">${g.status === "yes" ? `Coming · ${g.coming} ${g.coming === 1 ? "seat" : "seats"}` : g.status === "no" ? "Said they can't make it" : "Hasn't replied"}</div></div>
-    ${g.checked_in_at ? `<span class="arrived">Arrived ${esc(clock(g.checked_in_at))}</span><button type="button" class="btn sm ghost" data-ck-undo="${g.id}">Undo</button>`
-      : `<button type="button" class="btn sm" data-ck="${g.id}">Check in</button>`}</li>`).join("") || (q ? `<li class="hint">No one called "${esc(q)}" on the list.</li>` : "");
-}
-async function setArrived(g, on) {
-  const at = on ? new Date().toISOString() : null;
-  const { error } = await sb.from("guests").update({ checked_in_at: at }).eq("id", g.id);
-  if (error) {
-    toast(/checked_in_at/.test(error.message) ? "Check-in needs a one-time database update: run supabase/006_safety_and_checkin.sql in Supabase's SQL Editor." : "Couldn't save the check-in: " + error.message);
-    return false;
-  }
-  g.checked_in_at = at; renderCheckin(); renderGuests(); return true;
-}
-function showResult(kind, html) { $("ckResult").className = "ck-result " + kind; $("ckResult").innerHTML = html; }
-// a scanned code: the guest's own link (or just its code)
-async function onScan(text) {
-  const tok = (String(text).match(/#?([a-f0-9]{32})(?:\/preview)?\s*$/i) || [])[1];
-  const g = tok && guests.find((x) => x.token === tok);
-  if (!g) { showResult("bad", "<b>Not on this guest list.</b> Try finding them by name."); navigator.vibrate?.([60, 60, 60]); return; }
-  if (g.checked_in_at) { showResult("warn", `<b>${esc(g.name)}</b> already checked in at ${esc(clock(g.checked_in_at))}.`); return; }
-  if (await setArrived(g, true)) {
-    navigator.vibrate?.(120);
-    showResult("ok", `<b>Welcome, ${esc(g.name)}!</b> ${g.status === "yes" ? `${g.coming} ${g.coming === 1 ? "seat" : "seats"}` : g.status === "no" ? "They'd said they couldn't come." : "They hadn't replied."}${g.dietary ? ` · ${esc(g.dietary)}` : ""} <button type="button" class="btn sm ghost" data-ck-undo="${g.id}">Undo</button>`);
-  }
-}
-async function startCamera() {
-  if (!navigator.mediaDevices?.getUserMedia) { toast("This browser can't use the camera. Find guests by name instead."); return; }
-  try { camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }); }
-  catch { toast("Camera not available. Allow camera access for this site, or find guests by name."); return; }
-  const v = $("ckVideo"); v.srcObject = camStream; await v.play().catch(() => { });
-  $("ckStart").hidden = true; v.classList.add("on");
-  // the phone's own QR reader where there is one, otherwise a small library
-  let detect;
-  if ("BarcodeDetector" in window && (await BarcodeDetector.getSupportedFormats?.().catch(() => []) || []).includes("qr_code")) {
-    const bd = new BarcodeDetector({ formats: ["qr_code"] });
-    detect = async () => (await bd.detect(v))[0]?.rawValue;
-  } else {
-    const { default: jsQR } = await import(JSQR_LIB);
-    const c = document.createElement("canvas"), g = c.getContext("2d", { willReadFrequently: true });
-    detect = async () => {
-      if (!v.videoWidth) return null;
-      const k = Math.min(1, 640 / v.videoWidth); c.width = v.videoWidth * k; c.height = v.videoHeight * k;
-      g.drawImage(v, 0, 0, c.width, c.height);
-      return jsQR(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height)?.data;
-    };
-  }
-  scanTimer = setInterval(async () => {
-    if (Date.now() < scanPause || !camStream) return;
-    const code = await detect().catch(() => null);
-    if (code) { scanPause = Date.now() + 2500; onScan(code); }   // a short pause so one pass isn't read twice
-  }, 250);
-}
-function stopCamera() {
-  clearInterval(scanTimer); scanTimer = null;
-  camStream?.getTracks().forEach((t) => t.stop()); camStream = null;
-  $("ckVideo").classList.remove("on"); $("ckStart").hidden = false;
-}
-$("checkinBtn").addEventListener("click", () => { $("ckSearch").value = ""; showResult("", ""); renderCheckin(); $("checkDlg").showModal(); $("ckStart").focus(); });
-$("ckStart").addEventListener("click", startCamera);
-$("ckClose").addEventListener("click", () => $("checkDlg").close());
-$("checkDlg").addEventListener("close", stopCamera);
-$("ckSearch").addEventListener("input", renderCheckin);
-$("checkDlg").addEventListener("click", async (e) => {
-  const a = e.target.closest("[data-ck]"), u = e.target.closest("[data-ck-undo]");
-  const g = guests.find((x) => x.id === (a || u)?.dataset[a ? "ck" : "ckUndo"]); if (!g) return;
-  if (a) { if (await setArrived(g, true)) showResult("ok", `<b>${esc(g.name)}</b> checked in.`); }
-  else if (await setArrived(g, false)) showResult("", `${esc(g.name)} is no longer checked in.`);
-});
+/* ---------- import guests (edit-import.js) and check-in on the day (edit-checkin.js) ---------- */
