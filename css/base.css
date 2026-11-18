@@ -324,10 +324,18 @@ main {
 label.f {
   display: grid;
   gap: 5px;
+  align-content: start;
   font-size: 14px;
   font-weight: 600;
   color: var(--muted);
   min-width: 0
+}
+
+label.f .lab {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px
 }
 
 label.f output {
@@ -437,9 +445,9 @@ h2.sec {
 }
 
 h3.sub-h {
-  font: 600 13px var(--ui);
-  color: var(--muted);
-  margin: 6px 0 0
+  font: 700 16px var(--ui);
+  color: var(--fg);
+  margin: 10px 0 0
 }
 
 .acts {
@@ -3418,4 +3426,22 @@ input[type=time]:focus-within {
   .toast.error {
     border: 2px solid CanvasText
   }
+}
+
+/* Decorate step: room to breathe between the groups */
+#fdTools {
+  display: grid;
+  gap: 14px
+}
+
+#fdTools .sub-h {
+  margin-top: 14px
+}
+
+#fdTools .fd-lib {
+  margin-top: 0
+}
+
+.fd-props h3.sub-h {
+  margin: 0
 }

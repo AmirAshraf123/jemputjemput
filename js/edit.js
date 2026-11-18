@@ -225,13 +225,13 @@ const PART_UI = {
     color: "headColor", font: "headFont", more: () => `
       <div class="row">
         <label class="f">Letters<select data-s="headCase"><option value="upper">CAPITALS</option><option value="normal">As typed</option></select></label>
-        <label class="f">Letter spacing <output id="oHeadSpacing"></output><input type="range" data-s="headSpacing" min="0" max="40" step="1"></label>
+        <label class="f"><span class="lab">Letter spacing <output id="oHeadSpacing"></output></span><input type="range" data-s="headSpacing" min="0" max="40" step="1"></label>
       </div>
       <label class="chk"><input type="checkbox" data-s="headItalic"> Italic</label>` },
   names: {
     color: "accent", font: "nameFont", noSame: true, more: () => `
       <div class="row">
-        <label class="f">Size <output id="oNameSize"></output><input type="range" data-s="nameSize" min="28" max="64" step="1"></label>
+        <label class="f"><span class="lab">Size <output id="oNameSize"></output></span><input type="range" data-s="nameSize" min="28" max="64" step="1"></label>
         <label class="f">Finish<select data-s="namesFoil">${Object.entries(FOILS).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("")}</select></label>
       </div>` },
   message: { color: "msgColor", font: "msgFont" },

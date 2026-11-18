@@ -29,7 +29,7 @@ export function setupFreeDesign(ctx) {
   $("fdCats").innerHTML = Object.entries(STICKER_CATS).map(([k, v]) => `<button type="button" class="chip" data-cat="${k}" aria-pressed="${k === cat}">${esc(v)}</button>`).join("");
   function renderLib() {
     $("fdLib").innerHTML = Object.entries(STICKERS).filter(([, s]) => s.cat === cat).map(([k, s]) =>
-      `<button type="button" class="fd-st" data-add="${k}" aria-label="Add ${esc(s.label)}" title="${esc(s.label)}">${stickerSVG(k, "currentColor")}</button>`).join("");
+      `<button type="button" class="fd-st" data-add="${k}" aria-label="Add ${esc(s.label)}" title="${esc(s.label)}">${stickerSVG(k, "#000", true)}</button>`).join("");
   }
   $("fdCats").addEventListener("click", (e) => {
     const b = e.target.closest("[data-cat]"); if (!b) return;
@@ -41,7 +41,7 @@ export function setupFreeDesign(ctx) {
     commit([...layers(), x]); select(x.id);
     ctx.announce(`${layerLabel(find(x.id) || x)} added. Drag it on the preview, or use the boxes below to place it.`);
   }
-  $("fdLib").addEventListener("click", (e) => { const b = e.target.closest("[data-add]"); if (b) add({ type: "sticker", sticker: b.dataset.add, w: STICKERS[b.dataset.add].w > 150 ? 60 : 28 }); });
+  $("fdLib").addEventListener("click", (e) => { const b = e.target.closest("[data-add]"); if (b) add({ type: "sticker", sticker: b.dataset.add, foil: "natural", w: STICKERS[b.dataset.add].w > 150 ? 60 : 28 }); });
   $("fdAddText").addEventListener("click", () => { add({ type: "text", text: "Your text", w: 70, size: 7 }); requestAnimationFrame(() => $("fdText")?.select()); });
   $("fdUpload").addEventListener("change", async (e) => {
     const f = e.target.files[0]; e.target.value = ""; if (!f) return;
@@ -65,7 +65,7 @@ export function setupFreeDesign(ctx) {
     layersSig = JSON.stringify(list.map((x) => [x.id, layerLabel(x), x.hide, x.lock, x.back, x.id === sel]));
     $("fdLayers").innerHTML = list.length ? list.map((x) => {
       const name = esc(layerLabel(x));
-      const thumb = x.type === "sticker" ? stickerSVG(x.sticker, "currentColor") : x.type === "image" ? `<img src="${esc(photoUrl(x))}" alt="">` : `<span class="fd-t">T</span>`;
+      const thumb = x.type === "sticker" ? stickerSVG(x.sticker, "#000", true) : x.type === "image" ? `<img src="${esc(photoUrl(x))}" alt="">` : `<span class="fd-t">T</span>`;
       return `<li class="sec-item fd-row${x.id === sel ? " on" : ""}${x.hide ? " is-hidden" : ""}" data-id="${x.id}">
         <div class="sec-row">
           <button type="button" class="drag-handle" data-id="${x.id}" aria-label="Move ${name} in front or behind. Drag, or use the up and down arrow keys">${GRIP}</button>
@@ -110,8 +110,8 @@ export function setupFreeDesign(ctx) {
     $("fdProps").hidden = false;
     const typeBits = x.type === "sticker" ? `
         <div class="row">
-          <label class="f">Colour<input type="color" data-p="color"></label>
-          <label class="f">Finish<select data-p="foil">${opts(FOILS)}</select></label>
+          <label class="f">Finish<select data-p="foil"><option value="natural">Natural colours</option><option value="">One colour</option>${Object.entries(FOILS).filter(([k]) => k).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("")}</select></label>
+          <label class="f" id="fdColourWrap">Colour<input type="color" data-p="color"></label>
         </div>
         <button type="button" class="btn sm ghost" data-act="namesColour">Use the names colour</button>`
       : x.type === "image" ? `<label class="f">Filter<select data-p="filter">${opts(FILTERS)}</select></label>`
@@ -119,13 +119,13 @@ export function setupFreeDesign(ctx) {
         <label class="f">Text<textarea id="fdText" data-p="text" maxlength="200" rows="2"></textarea></label>
         <div class="row">
           <label class="f">Font<select data-p="font">${fontOpts}</select></label>
-          <label class="f">Size <output data-o="size"></output><input type="range" data-p="size" min="2" max="30" step="0.5"></label>
+          <label class="f"><span class="lab">Size <output data-o="size"></output></span><input type="range" data-p="size" min="2" max="30" step="0.5"></label>
         </div>
         <div class="row">
-          <label class="f">Letter spacing <output data-o="ls"></output><input type="range" data-p="ls" min="-5" max="60" step="1"></label>
-          <label class="f">Line height <output data-o="lh"></output><input type="range" data-p="lh" min="80" max="220" step="5"></label>
+          <label class="f"><span class="lab">Letter spacing <output data-o="ls"></output></span><input type="range" data-p="ls" min="-5" max="60" step="1"></label>
+          <label class="f"><span class="lab">Line height <output data-o="lh"></output></span><input type="range" data-p="lh" min="80" max="220" step="5"></label>
         </div>
-        <label class="f">Curve <output data-o="curve"></output><input type="range" data-p="curve" min="-100" max="100" step="2"></label>
+        <label class="f"><span class="lab">Curve <output data-o="curve"></output></span><input type="range" data-p="curve" min="-100" max="100" step="2"></label>
         <div class="row">
           <label class="f">Colour<input type="color" data-p="color"></label>
           <label class="f">Finish<select data-p="foil">${opts(FOILS)}</select></label>
@@ -137,7 +137,7 @@ export function setupFreeDesign(ctx) {
         <button type="button" class="btn sm ghost" data-act="done">Done</button></div>
       ${typeBits}
       <div class="row fd-pos">${numF("x", "Across", -50, 150, 0.5, "%")}${numF("y", "Down", -50, 150, 0.5, "%")}${numF("w", "Width", 2, 200, 0.5, "%")}${numF("rot", "Turn", -180, 180, 1, "°")}</div>
-      <label class="f">Opacity <output data-o="op"></output><input type="range" data-p="op" min="0.05" max="1" step="0.05"></label>
+      <label class="f"><span class="lab">Opacity <output data-o="op"></output></span><input type="range" data-p="op" min="0.05" max="1" step="0.05"></label>
       <div class="fd-checks">
         <label class="chk"><input type="checkbox" data-p="back"> Behind the card's text</label>
         <label class="chk"><input type="checkbox" data-p="shadow"> Shadow</label>
@@ -167,13 +167,16 @@ export function setupFreeDesign(ctx) {
     const out = (k, t) => { const o = $("fdProps").querySelector(`[data-o="${k}"]`); if (o) o.textContent = t; };
     out("op", Math.round(x.op * 100) + "%");
     if (x.type === "text") { out("size", x.size); out("ls", (x.ls / 100).toFixed(2) + " em"); out("lh", (x.lh / 100).toFixed(2)); out("curve", x.curve ? (x.curve > 0 ? "smile " : "arch ") + Math.abs(x.curve) : "straight"); }
-    const nc = $("fdProps").querySelector('[data-act="namesColour"]'); if (nc) nc.hidden = !x.color;
+    const nc = $("fdProps").querySelector('[data-act="namesColour"]'); if (nc) nc.hidden = !x.color || x.foil !== "";
+    // a sticker's colour only applies to the one-colour finish
+    if (x.type === "sticker" && $("fdColourWrap")) $("fdColourWrap").hidden = x.foil !== "";
   }
   $("fdProps").addEventListener("input", (e) => {
     const k = e.target.dataset.p, x = find(sel); if (!k || !x) return;
     const t = e.target, v = t.type === "checkbox" ? t.checked : t.type === "range" || t.type === "number" ? +t.value : t.value;
     if (t.type === "number" && t.value === "") return;
     update(x.id, { [k]: v });
+    if (x.type === "sticker" && k === "foil") fillProps();
     if (k === "lock" || k === "back") renderLayers();
     if (k === "text") renderLayers();
   });

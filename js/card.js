@@ -1,7 +1,7 @@
 // Everything about how an invitation card looks: fonts, templates, photo placement.
 // Used by the landing page, the editor and the guest page, so all three always match.
 import { BASE_URL as SUPABASE_URL } from "./base-url.js";
-import { STICKERS, stickerMask } from "./stickers.js";
+import { STICKERS, stickerMask, stickerImage } from "./stickers.js";
 
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const clamp = (n, a, b, d) => { n = +n; return Number.isFinite(n) ? Math.min(b, Math.max(a, n)) : d; };
@@ -341,7 +341,7 @@ export function cleanLayers(list) {
       fx: !!x.fx, fy: !!x.fy, op: num(x.op, 0.05, 1, 1), back: !!x.back, hide: !!x.hide, lock: !!x.lock, shadow: !!x.shadow,
     };
     if (x.type === "sticker" && STICKERS[x.sticker]) {
-      out.push({ ...base, type: "sticker", sticker: x.sticker, color: HEX.test(x.color) ? x.color : "", foil: x.foil in FOILS ? x.foil : "" });
+      out.push({ ...base, type: "sticker", sticker: x.sticker, color: HEX.test(x.color) ? x.color : "", foil: x.foil in FOILS || x.foil === "natural" ? x.foil : "" });
     } else if (x.type === "image" && PHOTO_PATH.test(x.path)) {
       out.push({ ...base, type: "image", path: x.path, ar: num(x.ar, 0.1, 10, 1), filter: x.filter in FILTERS ? x.filter : "none" });
     } else if (x.type === "text" && typeof x.text === "string") {
@@ -375,8 +375,13 @@ function layerItemHTML(x, s, langFont) {
   const sh = x.shadow ? "drop-shadow(0 .9cqw 1.2cqw rgba(0,0,0,.35))" : "";
   let inner = "";
   if (x.type === "sticker") {
-    const st = STICKERS[x.sticker], paint = x.foil ? FOILS[x.foil].css : (x.color || s.accent), m = stickerMask(x.sticker);
-    inner = `<div class="ly-art" style="aspect-ratio:${st.w}/${st.h};background:${paint};-webkit-mask:${m} center/contain no-repeat;mask:${m} center/contain no-repeat"></div>`;
+    const st = STICKERS[x.sticker];
+    if (x.foil === "natural") {   // its own colours, with shading
+      inner = `<div class="ly-art" style="aspect-ratio:${st.w}/${st.h};background:${stickerImage(x.sticker)} center/contain no-repeat"></div>`;
+    } else {                      // one colour or foil, through a mask that keeps the lighter details lighter
+      const paint = x.foil ? FOILS[x.foil].css : (x.color || s.accent), m = stickerMask(x.sticker);
+      inner = `<div class="ly-art" style="aspect-ratio:${st.w}/${st.h};background:${paint};-webkit-mask:${m} center/contain no-repeat;mask:${m} center/contain no-repeat luminance"></div>`;
+    }
   } else if (x.type === "image") {
     const img = `<img src="${esc(photoUrl(x))}" alt="" crossorigin="anonymous" style="aspect-ratio:${(1 / x.ar).toFixed(4)};${FILTERS[x.filter].css ? `filter:${FILTERS[x.filter].css}` : ""}">`;
     inner = x.filter === "duo" ? `<div class="duo" style="--d1:${s.bg};--d2:${s.accent}">${img}</div>` : img;

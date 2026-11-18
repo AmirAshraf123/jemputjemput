@@ -189,8 +189,8 @@
                 </div>
                 <div class="row">
                   <label class="f">Text font<select id="sBodyFont" data-s="bodyFont"></select></label>
-                  <label class="f">Text size <output id="oBodySize"></output><input type="range" id="sBodySize"
-                      data-s="bodySize" min="13" max="20" step="1"></label>
+                  <label class="f"><span class="lab">Text size <output id="oBodySize"></output></span><input
+                      type="range" id="sBodySize" data-s="bodySize" min="13" max="20" step="1"></label>
                 </div>
                 <div class="row">
                   <label class="f">Border pattern<select id="sFrame" data-s="frame">
@@ -204,8 +204,8 @@
                       <option value="deco">Deco lines</option>
                       <option value="confetti">Confetti</option>
                     </select></label>
-                  <label class="f">Rounded corners <output id="oRadius"></output><input type="range" id="sRadius"
-                      data-s="radius" min="0" max="28" step="1"></label>
+                  <label class="f"><span class="lab">Rounded corners <output id="oRadius"></output></span><input
+                      type="range" id="sRadius" data-s="radius" min="0" max="28" step="1"></label>
                 </div>
                 <div class="row colors">
                   <label class="f">Border 1<input type="color" id="sFrameA" data-s="frameA"></label>
@@ -268,19 +268,19 @@
                       </select></label>
                   </div>
                   <div class="row" id="pSizeRow">
-                    <label class="f">Frame width <output id="oSize"></output><input type="range" id="pSize"
-                        data-p="size" min="30" max="100" step="1"></label>
-                    <label class="f">Frame height <output id="oH"></output><input type="range" id="pH" data-p="h"
-                        min="40" max="200" step="1"></label>
+                    <label class="f"><span class="lab">Frame width <output id="oSize"></output></span><input
+                        type="range" id="pSize" data-p="size" min="30" max="100" step="1"></label>
+                    <label class="f"><span class="lab">Frame height <output id="oH"></output></span><input type="range"
+                        id="pH" data-p="h" min="40" max="200" step="1"></label>
                   </div>
                   <p class="hint">Drag the photo on the preview to move it.</p>
                   <div class="row">
-                    <label class="f">Zoom <output id="oZoom"></output><input type="range" id="pZoom" data-p="zoom"
-                        min="20" max="300" step="1"></label>
-                    <label class="f">Left / right <output id="oPosX"></output><input type="range" id="pPosX" data-p="dx"
-                        min="-100" max="100" step="1"></label>
-                    <label class="f">Up / down <output id="oPosY"></output><input type="range" id="pPosY" data-p="dy"
-                        min="-100" max="100" step="1"></label>
+                    <label class="f"><span class="lab">Zoom <output id="oZoom"></output></span><input type="range"
+                        id="pZoom" data-p="zoom" min="20" max="300" step="1"></label>
+                    <label class="f"><span class="lab">Left / right <output id="oPosX"></output></span><input
+                        type="range" id="pPosX" data-p="dx" min="-100" max="100" step="1"></label>
+                    <label class="f"><span class="lab">Up / down <output id="oPosY"></output></span><input type="range"
+                        id="pPosY" data-p="dy" min="-100" max="100" step="1"></label>
                   </div>
                   <label class="f">Filter<select id="pFilter" data-p="filter">
                       <option value="none">None</option>
@@ -289,8 +289,9 @@
                       <option value="faded">Faded</option>
                       <option value="duo">Duotone (card colours)</option>
                     </select></label>
-                  <label class="f" id="pFadeWrap">Card colour over photo <output id="oFade"></output><input type="range"
-                      id="pFade" data-p="fade" min="0" max="90" step="1"></label>
+                  <label class="f" id="pFadeWrap"><span class="lab">Card colour over photo <output
+                        id="oFade"></output></span><input type="range" id="pFade" data-p="fade" min="0" max="90"
+                      step="1"></label>
                   <div class="acts">
                     <button type="button" class="btn sm" id="matchFrame">Fit frame to photo</button>
                     <button type="button" class="btn sm ghost" id="fitPhoto">Show whole photo</button>
