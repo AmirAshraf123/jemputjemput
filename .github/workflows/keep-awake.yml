@@ -1,6 +1,8 @@
 # Keeps a free Supabase project from pausing after a week without visitors.
 # Runs every 3 days and makes one tiny database request.
-# Setup: README step 6, option C.
+# Setup: in GitHub, Settings → Secrets and variables → Actions, add two repository secrets:
+#   SUPABASE_URL       e.g. https://abcd1234.supabase.co  (no /rest/v1 on the end)
+#   SUPABASE_ANON_KEY  the publishable key (sb_publishable_…) or the older anon key, the same one as in js/config.js
 name: Keep Supabase awake
 
 on:
@@ -17,9 +19,28 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$SUPABASE_URL/rest/v1/invitations?select=id&limit=1" \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::The SUPABASE_URL and SUPABASE_ANON_KEY secrets aren't set. Add them under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          # tidy common copy-paste slips: a trailing slash, or /rest/v1 on the end
+          base=$(printf '%s' "$SUPABASE_URL" | sed -E 's#/+$##; s#/rest/v1$##')
+          # Publishable keys (sb_publishable_…) aren't JWTs, so they go in the apikey header only.
+          # The older anon key (eyJ…) also needs to be sent as a bearer token.
+          auth=()
+          case "$SUPABASE_ANON_KEY" in eyJ*) auth=(-H "Authorization: Bearer $SUPABASE_ANON_KEY");; esac
+          code=$(curl -s -o body.txt -w "%{http_code}" --max-time 30 --retry 2 --retry-delay 10 \
+            "$base/rest/v1/invitations?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" "${auth[@]}" || true)
           echo "Supabase answered with HTTP $code"
-          test "$code" = "200"
+          if [ "$code" != "200" ]; then
+            echo "Response:"; head -c 500 body.txt 2>/dev/null || true; echo
+            case "$code" in
+              000) echo "::error::Couldn't reach $base. Check the SUPABASE_URL secret.";;
+              401|403) echo "::error::The key was refused. Check the SUPABASE_ANON_KEY secret matches the key in js/config.js.";;
+              404) echo "::error::Supabase couldn't find that address or table. Check SUPABASE_URL and that schema.sql has been run.";;
+              5*) echo "::error::Supabase is down or the project is paused. If it's paused, restore it from the Supabase dashboard.";;
+              *) echo "::error::Unexpected answer from Supabase (HTTP $code).";;
+            esac
+            exit 1
+          fi
